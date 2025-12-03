@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QB Mechanic Pro</title>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <!-- CSS Files - Reutilizando estilos de qb-advanced-shops y qb-shop-ui -->
+    <link rel="stylesheet" href="css/creator/creator.css">
+    <link rel="stylesheet" href="css/tuneshop/tuneshop.css">
+    <link rel="stylesheet" href="css/tablet/tablet.css">
+
+    <style>
+        /* Base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: transparent;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Ocultar todas las UIs por defecto */
+        #creator-ui,
+        #tuneshop-ui,
+        #tablet-ui {
+            display: none;
+        }
+
+        /* Mostrar UI activa */
+        #creator-ui.active,
+        #tuneshop-ui.active,
+        #tablet-ui.active {
+            display: flex;
+        }
+
+        /* Overlay oscuro */
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ====================================================================
+         CREATOR UI - Sistema de creación/edición de talleres
+         Reutiliza CSS de qb-advanced-shops
+         ==================================================================== -->
+    <div id="creator-ui">
+        <!-- El HTML completo se generará dinámicamente en app.js -->
+        <div class="ui-overlay"></div>
+    </div>
+
+    <!-- ====================================================================
+         TUNESHOP UI - Tienda de tuning para clientes
+         Reutiliza CSS de qb-shop-ui (market-layout)
+         ==================================================================== -->
+    <div id="tuneshop-ui">
+        <!-- El HTML completo se generará dinámicamente en tuneshop.js -->
+        <div class="ui-overlay"></div>
+    </div>
+
+    <!-- ====================================================================
+         TABLET UI - Dashboard de gestión para mecánicos
+         CSS adaptado del tema de qb-shop-ui
+         ==================================================================== -->
+    <div id="tablet-ui">
+        <!-- El HTML completo se generará dinámicamente en tablet.js -->
+        <div class="ui-overlay"></div>
+    </div>
+    <div id="radial-ui">
+    </div>
+    <!-- Scripts -->
+    <script src="js/creator/index.js"></script>
+    <script src="js/tuneshop/index.js"></script>
+    <script src="js/tablet/index.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>
