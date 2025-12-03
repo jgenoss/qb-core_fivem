@@ -1,76 +1,96 @@
--- client/modules/carlift.lua
+-- ============================================================================
+-- QB-MECHANIC-PRO - Carlift Module (Client)
+-- ============================================================================
 
-local lifting = false
-local liftObjects = {} -- Cache para guardar objetos de elevadores
+local carliftObjects = {}
+local raisedVehicles = {}
 
--- Función auxiliar para encontrar el elevador más cercano (objeto del mapa)
--- Si usas props dinámicos, usa GetClosestObjectOfType
-local function GetClosestLift(coords)
-    -- Ajusta el modelo según lo que uses en tu servidor
-    local liftModel = GetHashKey("prop_carjack") 
-    local lift = GetClosestObjectOfType(coords.x, coords.y, coords.z, 3.0, liftModel, false, false, false)
-    return lift
-end
-
--- Evento principal: Usar Elevador
-RegisterNetEvent('qb-mechanic:client:handleCarlift', function(shopId, locationData)
-    local vehicle = exports['qb-mechanic-pro']:GetClosestVehicle() -- Usando el export que definiste en workshop.lua
+-- ----------------------------------------------------------------------------
+-- Event: Manejar carlift (raise/lower)
+-- ----------------------------------------------------------------------------
+RegisterNetEvent('qb-mechanic:client:handleCarlift', function(shopId, location)
+    local vehicle, distance = exports['qb-mechanic-pro']:GetClosestVehicle()
     
     if not vehicle then
-        exports['qb-mechanic-pro']:Notify('No hay vehículo cerca', 'error')
+        exports['qb-mechanic-pro']:Notify('No vehicle nearby', 'error')
         return
     end
-
-    local plate = GetVehicleNumberPlateText(vehicle)
     
-    -- Estado: Si ya está arriba, lo bajamos. Si está abajo, lo subimos.
-    local isRaised = Entity(vehicle).state.isRaised or false
-
-    if lifting then return end -- Evitar spam
-    lifting = true
-
-    if not isRaised then
-        -- SUBIR
-        exports['qb-mechanic-pro']:Notify('Elevando vehículo...', 'primary', 2000)
-        
-        -- Congelar vehículo
-        FreezeEntityPosition(vehicle, true)
-        
-        -- Animación simple de subida
-        local currentPos = GetEntityCoords(vehicle)
-        local targetZ = currentPos.z + 2.0 -- Subir 2 metros
-        
-        CreateThread(function()
-            while GetEntityCoords(vehicle).z < targetZ do
-                local pos = GetEntityCoords(vehicle)
-                SetEntityCoords(vehicle, pos.x, pos.y, pos.z + 0.02, true, true, true, false)
-                Wait(10)
-            end
-            
-            Entity(vehicle).state:set('isRaised', true, true)
-            lifting = false
-            exports['qb-mechanic-pro']:Notify('Vehículo elevado', 'success')
-        end)
-    else
-        -- BAJAR
-        exports['qb-mechanic-pro']:Notify('Bajando vehículo...', 'primary', 2000)
-        
-        local currentPos = GetEntityCoords(vehicle)
-        -- Buscamos el suelo
-        local foundGround, groundZ = GetGroundZFor_3dCoord(currentPos.x, currentPos.y, currentPos.z, 0)
-        if not foundGround then groundZ = currentPos.z - 2.0 end
-        
-        CreateThread(function()
-            while GetEntityCoords(vehicle).z > groundZ + 0.5 do -- +0.5 buffer para no atravesar suelo
-                local pos = GetEntityCoords(vehicle)
-                SetEntityCoords(vehicle, pos.x, pos.y, pos.z - 0.02, true, true, true, false)
-                Wait(10)
-            end
-            
-            FreezeEntityPosition(vehicle, false) -- Descongelar
-            Entity(vehicle).state:set('isRaised', false, true)
-            lifting = false
-            exports['qb-mechanic-pro']:Notify('Vehículo bajado', 'success')
-        end)
+    if distance > 5.0 then
+        exports['qb-mechanic-pro']:Notify('Vehicle is too far', 'error')
+        return
     end
+    
+    local isRaised = Entity(vehicle).state.carliftRaised or false
+    
+    if isRaised then
+        LowerVehicle(vehicle)
+    else
+        RaiseVehicle(vehicle, location)
+    end
+end)
+
+-- ----------------------------------------------------------------------------
+-- Función: Levantar vehículo
+-- ----------------------------------------------------------------------------
+function RaiseVehicle(vehicle, location)
+    local vehCoords = GetEntityCoords(vehicle)
+    local targetZ = vehCoords.z + (Config.Carlift.RaiseHeight or 3.0)
+    
+    -- Congelar vehículo
+    FreezeEntityPosition(vehicle, true)
+    SetEntityInvincible(vehicle, true)
+    
+    -- Animación de subida
+    CreateThread(function()
+        local currentZ = vehCoords.z
+        
+        while currentZ < targetZ do
+            currentZ = currentZ + (Config.Carlift.AnimationSpeed or 0.02)
+            SetEntityCoords(vehicle, vehCoords.x, vehCoords.y, currentZ, false, false, false, false)
+            Wait(10)
+        end
+        
+        -- Marcar como levantado
+        Entity(vehicle).state:set('carliftRaised', true, true)
+        
+        exports['qb-mechanic-pro']:Notify('Vehicle raised', 'success')
+    end)
+end
+
+-- ----------------------------------------------------------------------------
+-- Función: Bajar vehículo
+-- ----------------------------------------------------------------------------
+function LowerVehicle(vehicle)
+    local vehCoords = GetEntityCoords(vehicle)
+    local groundZ = vehCoords.z - (Config.Carlift.RaiseHeight or 3.0)
+    
+    -- Animación de bajada
+    CreateThread(function()
+        local currentZ = vehCoords.z
+        
+        while currentZ > groundZ do
+            currentZ = currentZ - (Config.Carlift.AnimationSpeed or 0.02)
+            SetEntityCoords(vehicle, vehCoords.x, vehCoords.y, currentZ, false, false, false, false)
+            Wait(10)
+        end
+        
+        -- Descongelar vehículo
+        FreezeEntityPosition(vehicle, false)
+        SetEntityInvincible(vehicle, false)
+        
+        -- Marcar como bajado
+        Entity(vehicle).state:set('carliftRaised', false, true)
+        
+        exports['qb-mechanic-pro']:Notify('Vehicle lowered', 'success')
+    end)
+end
+
+-- ----------------------------------------------------------------------------
+-- Exports
+-- ----------------------------------------------------------------------------
+exports('RaiseVehicle', RaiseVehicle)
+exports('LowerVehicle', LowerVehicle)
+exports('IsVehicleRaised', function(vehicle)
+    return Entity(vehicle).state.carliftRaised or false
 end)

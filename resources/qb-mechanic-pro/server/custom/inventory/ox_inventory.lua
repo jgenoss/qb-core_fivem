@@ -1,8 +1,8 @@
 -- ============================================================================
--- QB-MECHANIC-PRO - QB-Inventory Integration
+-- QB-MECHANIC-PRO - OX_Inventory Integration
 -- ============================================================================
 
-if Config.Inventory ~= 'qb-inventory' then
+if Config.Inventory ~= 'ox_inventory' then
     return
 end
 
@@ -12,9 +12,10 @@ end
 function CreateMechanicStash(shopId)
     local stashId = 'mechanic_' .. shopId
     
-    -- QBCore ya maneja stashes dinámicamente, solo necesitamos el ID
+    exports.ox_inventory:RegisterStash(stashId, 'Mechanic Stash', 50, 100000, false)
+    
     if Config.Debug then
-        print(string.format('^2[QB-MECHANIC-PRO]^0 Stash created: %s', stashId))
+        print(string.format('^2[QB-MECHANIC-PRO]^0 Stash registered: %s', stashId))
     end
     
     return stashId
@@ -25,45 +26,31 @@ end
 -- ----------------------------------------------------------------------------
 function OpenMechanicStash(source, shopId)
     local stashId = 'mechanic_' .. shopId
-    
-    TriggerClientEvent('inventory:client:SetCurrentStash', source, stashId)
-    TriggerEvent('inventory:server:OpenInventory', 'stash', stashId, {
-        maxweight = 4000000,
-        slots = 50,
-    })
+    exports.ox_inventory:forceOpenInventory(source, 'stash', stashId)
 end
 
 -- ----------------------------------------------------------------------------
 -- Dar item a jugador
 -- ----------------------------------------------------------------------------
-function GiveItem(source, item, amount, info)
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return false end
-    
-    return Player.Functions.AddItem(item, amount or 1, false, info or {})
+function GiveItem(source, item, amount, metadata)
+    local success = exports.ox_inventory:AddItem(source, item, amount or 1, metadata or {})
+    return success
 end
 
 -- ----------------------------------------------------------------------------
 -- Remover item de jugador
 -- ----------------------------------------------------------------------------
 function RemoveItem(source, item, amount)
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return false end
-    
-    return Player.Functions.RemoveItem(item, amount or 1)
+    local success = exports.ox_inventory:RemoveItem(source, item, amount or 1)
+    return success
 end
 
 -- ----------------------------------------------------------------------------
 -- Verificar si el jugador tiene un item
 -- ----------------------------------------------------------------------------
 function HasItem(source, item, amount)
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return false end
-    
-    local itemData = Player.Functions.GetItemByName(item)
-    if not itemData then return false end
-    
-    return itemData.amount >= (amount or 1)
+    local count = exports.ox_inventory:GetItemCount(source, item)
+    return count >= (amount or 1)
 end
 
 -- ----------------------------------------------------------------------------

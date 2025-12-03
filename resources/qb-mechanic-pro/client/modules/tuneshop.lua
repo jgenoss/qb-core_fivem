@@ -106,3 +106,75 @@ RegisterNUICallback('updateCamera', function(data, cb)
     SetCameraPosition(category)
     cb('ok')
 end)
+
+-- ----------------------------------------------------------------------------
+-- NUI Callback: Obtener precio de modificación
+-- ----------------------------------------------------------------------------
+RegisterNUICallback('getModificationPrice', function(data, cb)
+    QBCore.Functions.TriggerCallback('qb-mechanic:server:getModificationPrice', function(price)
+        cb({price = price})
+    end, data.modType, data.modIndex, data.level)
+end)
+
+-- ----------------------------------------------------------------------------
+-- NUI Callback: Añadir al carrito
+-- ----------------------------------------------------------------------------
+RegisterNUICallback('addToCart', function(data, cb)
+    -- El carrito se maneja en el cliente, solo confirmamos
+    cb({success = true})
+end)
+
+-- ----------------------------------------------------------------------------
+-- NUI Callback: Remover del carrito
+-- ----------------------------------------------------------------------------
+RegisterNUICallback('removeFromCart', function(data, cb)
+    cb({success = true})
+end)
+
+-- ----------------------------------------------------------------------------
+-- NUI Callback: Vaciar carrito
+-- ----------------------------------------------------------------------------
+RegisterNUICallback('clearCart', function(data, cb)
+    cb({success = true})
+end)
+
+-- ----------------------------------------------------------------------------
+-- NUI Callback: Procesar compra (checkout)
+-- ----------------------------------------------------------------------------
+RegisterNUICallback('purchaseMods', function(data, cb)
+    if not inTuneshop or not currentVehicle then
+        cb({success = false, message = 'Not in tuneshop'})
+        return
+    end
+    
+    local plate = GetVehicleNumberPlateText(currentVehicle)
+    
+    TriggerServerEvent('qb-mechanic:server:purchaseMods', {
+        shopId = data.shopId,
+        vehiclePlate = plate,
+        modifications = data.modifications,
+        totalCost = data.totalCost,
+        paymentMethod = data.paymentMethod
+    })
+    
+    cb({success = true})
+end)
+
+-- ----------------------------------------------------------------------------
+-- NUI Callback: Cancelar compra
+-- ----------------------------------------------------------------------------
+RegisterNUICallback('cancelPurchase', function(data, cb)
+    if originalMods and currentVehicle then
+        exports['qb-mechanic-pro']:SetVehicleProperties(currentVehicle, originalMods)
+    end
+    cb('ok')
+end)
+
+-- ----------------------------------------------------------------------------
+-- NUI Callback: Cerrar tuneshop
+-- ----------------------------------------------------------------------------
+RegisterNUICallback('closeTuneshop', function(data, cb)
+    TriggerEvent('qb-mechanic:client:exitTuneshop', false)
+    SetNuiFocus(false, false)
+    cb('ok')
+end)
