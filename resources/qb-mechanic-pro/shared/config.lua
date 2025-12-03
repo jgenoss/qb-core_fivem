@@ -1,3 +1,6 @@
+Config.EnableCommissions = true
+Config.CommissionRate = 0.10 -- 10% del costo de la orden
+
 -- ============================================================================
 -- CONFIGURACIÓN DE ÓRDENES
 -- ============================================================================

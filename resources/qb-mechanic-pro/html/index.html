@@ -1,25 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QB Mechanic Pro</title>
 
+    <!-- ====================================================================
+         FONTS
+         ==================================================================== -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
+    <!-- ====================================================================
+         CSS GLOBAL
+         ==================================================================== -->
+    <link rel="stylesheet" href="css/base.css">
 
-    <!-- CSS Files - Reutilizando estilos de qb-advanced-shops y qb-shop-ui -->
+    <!-- ====================================================================
+         CSS POR MÓDULO
+         ==================================================================== -->
     <link rel="stylesheet" href="css/creator/creator.css">
     <link rel="stylesheet" href="css/tuneshop/tuneshop.css">
     <link rel="stylesheet" href="css/tablet/tablet.css">
+    <link rel="stylesheet" href="css/install-progress.css">
+    <link rel="stylesheet" href="css/radial/radial.css">
 
     <style>
-        /* Base styles */
+        /* ================================================================
+           BASE STYLES - Ocultar UIs por defecto
+           ================================================================ */
         * {
             margin: 0;
             padding: 0;
@@ -37,7 +50,9 @@
         /* Ocultar todas las UIs por defecto */
         #creator-ui,
         #tuneshop-ui,
-        #tablet-ui {
+        #tablet-ui,
+        #install-progress-ui,
+        #radial-ui {
             display: none;
         }
 
@@ -48,7 +63,15 @@
             display: flex;
         }
 
-        /* Overlay oscuro */
+        #install-progress-ui.active {
+            display: block;
+        }
+
+        #radial-ui.show {
+            display: flex;
+        }
+
+        /* Overlay oscuro para UIs principales */
         .ui-overlay {
             position: fixed;
             top: 0;
@@ -57,7 +80,7 @@
             height: 100vh;
             background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(5px);
-            z-index: 1000;
+            z-index: 999;
         }
     </style>
 </head>
@@ -65,37 +88,66 @@
 <body>
     <!-- ====================================================================
          CREATOR UI - Sistema de creación/edición de talleres
-         Reutiliza CSS de qb-advanced-shops
          ==================================================================== -->
     <div id="creator-ui">
-        <!-- El HTML completo se generará dinámicamente en app.js -->
         <div class="ui-overlay"></div>
+        <div class="creator-container">
+            <!-- El contenido se genera dinámicamente en creator/index.js -->
+        </div>
     </div>
 
     <!-- ====================================================================
          TUNESHOP UI - Tienda de tuning para clientes
-         Reutiliza CSS de qb-shop-ui (market-layout)
          ==================================================================== -->
     <div id="tuneshop-ui">
-        <!-- El HTML completo se generará dinámicamente en tuneshop.js -->
         <div class="ui-overlay"></div>
+        <div class="tuneshop-container">
+            <!-- El contenido se genera dinámicamente en tuneshop/index.js -->
+        </div>
     </div>
 
     <!-- ====================================================================
          TABLET UI - Dashboard de gestión para mecánicos
-         CSS adaptado del tema de qb-shop-ui
          ==================================================================== -->
     <div id="tablet-ui">
-        <!-- El HTML completo se generará dinámicamente en tablet.js -->
         <div class="ui-overlay"></div>
+        <div class="tablet-container">
+            <!-- El contenido se genera dinámicamente en tablet/index.js -->
+        </div>
     </div>
+
+    <!-- ====================================================================
+         INSTALL PROGRESS UI - Barra de progreso de instalación
+         ==================================================================== -->
+    <div id="install-progress-ui">
+        <!-- El contenido se genera dinámicamente en install-progress.js -->
+    </div>
+
+    <!-- ====================================================================
+         RADIAL MENU UI - Menú radial hexagonal
+         ==================================================================== -->
     <div id="radial-ui">
+        <!-- El contenido se genera dinámicamente en radial/index.js -->
     </div>
-    <!-- Scripts -->
+
+    <!-- ====================================================================
+         JAVASCRIPT - Orden de carga importante
+         ==================================================================== -->
+    
+    <!-- 1. Utilidades primero (funciones globales) -->
+    <script src="js/utils.js"></script>
+    
+    <!-- 2. Controlador principal -->
+    <script src="js/main.js"></script>
+    
+    <!-- 3. Módulos independientes -->
+    <script src="js/install-progress.js"></script>
+    
+    <!-- 4. UIs específicas (si existen) -->
     <script src="js/creator/index.js"></script>
     <script src="js/tuneshop/index.js"></script>
     <script src="js/tablet/index.js"></script>
-    <script src="js/main.js"></script>
+    <script src="js/radial/index.js"></script>
 </body>
 
 </html>

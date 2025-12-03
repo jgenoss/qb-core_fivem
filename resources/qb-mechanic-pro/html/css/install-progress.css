@@ -1,0 +1,256 @@
+/* ============================================================================
+   QB-MECHANIC-PRO - Install Progress UI
+   ============================================================================ */
+
+#install-progress-ui {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.98), rgba(31, 41, 55, 0.98));
+    border: 2px solid rgba(59, 130, 246, 0.4);
+    border-radius: 20px;
+    padding: 40px;
+    min-width: 500px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7),
+                0 0 100px rgba(59, 130, 246, 0.2);
+    backdrop-filter: blur(16px);
+    display: none;
+    z-index: 9999;
+    animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#install-progress-ui.active {
+    display: block;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+
+/* Header */
+.install-header {
+    text-align: center;
+    margin-bottom: 32px;
+    position: relative;
+}
+
+.install-header::after {
+    content: '';
+    position: absolute;
+    bottom: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+}
+
+.install-header h2 {
+    color: #60a5fa;
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 12px 0;
+    text-shadow: 0 0 20px rgba(96, 165, 250, 0.5);
+    letter-spacing: 0.5px;
+}
+
+.install-header h2 i {
+    margin-right: 12px;
+    animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.install-header p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 15px;
+    margin: 0;
+    font-weight: 500;
+}
+
+/* Progress Bar Container */
+.progress-bar-container {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 16px;
+    height: 32px;
+    overflow: hidden;
+    margin: 24px 0;
+    position: relative;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.progress-bar-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(96, 165, 250, 0.3), 
+        transparent
+    );
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2563eb, #3b82f6, #60a5fa);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.3), 
+        transparent
+    );
+    animation: slide 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+@keyframes slide {
+    to {
+        left: 100%;
+    }
+}
+
+/* Current Mod Display */
+.current-mod {
+    background: linear-gradient(135deg, 
+        rgba(59, 130, 246, 0.15), 
+        rgba(37, 99, 235, 0.1)
+    );
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.current-mod::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(59, 130, 246, 0.1), 
+        transparent
+    );
+    animation: scanLine 2s ease-in-out infinite;
+}
+
+@keyframes scanLine {
+    to {
+        left: 100%;
+    }
+}
+
+.current-mod strong {
+    color: #60a5fa;
+    font-size: 15px;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.current-mod span {
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Status Messages */
+.install-status {
+    text-align: center;
+    margin-top: 20px;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.install-status.success {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #86efac;
+}
+
+.install-status.error {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+/* Footer con advertencia */
+.install-footer {
+    text-align: center;
+    margin-top: 24px;
+    padding: 12px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+}
+
+.install-footer small {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.install-footer i {
+    color: #fbbf24;
+    margin-right: 6px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    #install-progress-ui {
+        min-width: 90vw;
+        padding: 24px;
+    }
+    
+    .install-header h2 {
+        font-size: 22px;
+    }
+}

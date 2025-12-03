@@ -1,30 +1,17 @@
 // ============================================================================
-// QB-MECHANIC-PRO - Main UI Controller
-// Gestión de navegación entre UIs y comunicación NUI
+// QB-MECHANIC-PRO - Main UI Controller (Refactorizado)
+// Solo coordinación y enrutamiento - La lógica está en módulos separados
 // ============================================================================
 
 const MechanicUI = {
     currentUI: null,
-    resourceName: null,
 
     // ------------------------------------------------------------------------
     // Inicialización
     // ------------------------------------------------------------------------
     init() {
-        this.resourceName = this.getResourceName();
         this.setupEventListeners();
-
-        console.log('[QB-MECHANIC-PRO] UI System initialized');
-    },
-
-    // ------------------------------------------------------------------------
-    // Obtener nombre del resource
-    // ------------------------------------------------------------------------
-    getResourceName() {
-        if (window.GetParentResourceName) {
-            return window.GetParentResourceName();
-        }
-        return 'qb-mechanic-pro'; // Fallback para desarrollo
+        Utils.log('UI System initialized', 'success');
     },
 
     // ------------------------------------------------------------------------
@@ -33,38 +20,7 @@ const MechanicUI = {
     setupEventListeners() {
         // Escuchar mensajes desde Lua
         window.addEventListener('message', (event) => {
-            const data = event.data;
-
-            switch (data.action) {
-                case 'openCreator':
-                    this.openUI('creator', data);
-                    break;
-
-                case 'openTuneshop':
-                    this.openUI('tuneshop', data);
-                    break;
-
-                case 'openTablet':
-                    this.openUI('tablet', data);
-                    break;
-
-                case 'updateInstallProgress':
-                    if (window.TabletUI) {
-                        window.TabletUI.updateInstallProgress(data);
-                    }
-                    break;
-                case 'openRadial':
-                    this.openRadialMenu(data.options);
-                    break;
-
-                case 'closeRadial':
-                    this.closeRadialMenu();
-                    break;
-
-                case 'closeUI':
-                    this.closeCurrentUI();
-                    break;
-            }
+            this.handleMessage(event.data);
         });
 
         // Cerrar UI con ESC
@@ -73,6 +29,95 @@ const MechanicUI = {
                 this.closeCurrentUI();
             }
         });
+    },
+
+    // ------------------------------------------------------------------------
+    // Router de mensajes
+    // ------------------------------------------------------------------------
+    handleMessage(data) {
+        const action = data.action;
+        
+        // UIs principales
+        if (action === 'openCreator') {
+            this.openUI('creator', data);
+            return;
+        }
+        
+        if (action === 'openTuneshop') {
+            this.openUI('tuneshop', data);
+            return;
+        }
+        
+        if (action === 'openTablet') {
+            this.openUI('tablet', data);
+            return;
+        }
+        
+        // Sistema de progreso de instalación
+        if (action === 'showInstallProgress') {
+            InstallProgress.show(data);
+            return;
+        }
+        
+        if (action === 'updateInstallProgress') {
+            InstallProgress.update(data);
+            return;
+        }
+        
+        if (action === 'hideInstallProgress') {
+            InstallProgress.hide();
+            return;
+        }
+        
+        // Radial menu
+        if (action === 'openRadial') {
+            this.openRadialMenu(data.options);
+            return;
+        }
+        
+        if (action === 'closeRadial') {
+            this.closeRadialMenu();
+            return;
+        }
+        
+        // Cierre de UIs
+        if (action === 'closeUI') {
+            this.closeCurrentUI();
+            return;
+        }
+        
+        if (action === 'closeAll') {
+            this.closeAllUIs();
+            return;
+        }
+        
+        // Si llegamos aquí, intentar delegar a UIs específicas
+        this.delegateToUI(action, data);
+    },
+
+    // ------------------------------------------------------------------------
+    // Delegar mensaje a UI específica
+    // ------------------------------------------------------------------------
+    delegateToUI(action, data) {
+        // TabletUI
+        if (window.TabletUI && typeof window.TabletUI[action] === 'function') {
+            window.TabletUI[action](data);
+            return;
+        }
+        
+        // TuneshopUI
+        if (window.TuneshopUI && typeof window.TuneshopUI[action] === 'function') {
+            window.TuneshopUI[action](data);
+            return;
+        }
+        
+        // CreatorUI
+        if (window.CreatorUI && typeof window.CreatorUI[action] === 'function') {
+            window.CreatorUI[action](data);
+            return;
+        }
+        
+        Utils.log(`Unhandled action: ${action}`, 'warning');
     },
 
     // ------------------------------------------------------------------------
@@ -86,7 +131,7 @@ const MechanicUI = {
 
         const uiElement = document.getElementById(`${uiName}-ui`);
         if (!uiElement) {
-            console.error(`UI "${uiName}" not found`);
+            Utils.log(`UI "${uiName}" not found`, 'error');
             return;
         }
 
@@ -95,22 +140,56 @@ const MechanicUI = {
         this.currentUI = uiName;
 
         // Inicializar UI específica
+        this.initializeUI(uiName, data);
+        
+        Utils.log(`Opened ${uiName} UI`, 'info');
+    },
+
+    // ------------------------------------------------------------------------
+    // Inicializar UI específica
+    // ------------------------------------------------------------------------
+    initializeUI(uiName, data) {
         switch (uiName) {
             case 'creator':
-                if (window.CreatorUI) {
+                if (window.CreatorUI && window.CreatorUI.initialize) {
                     window.CreatorUI.initialize(data);
                 }
                 break;
 
             case 'tuneshop':
-                if (window.TuneshopUI) {
+                if (window.TuneshopUI && window.TuneshopUI.initialize) {
                     window.TuneshopUI.initialize(data);
                 }
                 break;
 
             case 'tablet':
-                if (window.TabletUI) {
+                if (window.TabletUI && window.TabletUI.initialize) {
                     window.TabletUI.initialize(data);
+                }
+                break;
+        }
+    },
+
+    // ------------------------------------------------------------------------
+    // Cleanup UI específica
+    // ------------------------------------------------------------------------
+    cleanupUI(uiName) {
+        switch (uiName) {
+            case 'creator':
+                if (window.CreatorUI && window.CreatorUI.cleanup) {
+                    window.CreatorUI.cleanup();
+                }
+                break;
+
+            case 'tuneshop':
+                if (window.TuneshopUI && window.TuneshopUI.cleanup) {
+                    window.TuneshopUI.cleanup();
+                }
+                break;
+
+            case 'tablet':
+                if (window.TabletUI && window.TabletUI.cleanup) {
+                    window.TabletUI.cleanup();
                 }
                 break;
         }
@@ -127,63 +206,86 @@ const MechanicUI = {
             uiElement.classList.remove('active');
         }
 
-        // Cleanup UI específica
-        switch (this.currentUI) {
-            case 'creator':
-                if (window.CreatorUI) {
-                    window.CreatorUI.cleanup();
-                }
-                break;
-
-            case 'tuneshop':
-                if (window.TuneshopUI) {
-                    window.TuneshopUI.cleanup();
-                }
-                break;
-
-            case 'tablet':
-                if (window.TabletUI) {
-                    window.TabletUI.cleanup();
-                }
-                break;
-        }
-
+        // Cleanup
+        this.cleanupUI(this.currentUI);
+        
+        Utils.log(`Closed ${this.currentUI} UI`, 'info');
+        
         this.currentUI = null;
 
-        // Notificar a Lua que se cerró la UI
-        this.post('closeUI', {});
+        // Notificar a Lua
+        Utils.post('closeUI', {});
     },
-    // Funciones para el Menú Radial
+
+    // ------------------------------------------------------------------------
+    // Cerrar TODAS las UIs
+    // ------------------------------------------------------------------------
+    closeAllUIs() {
+        // Cerrar UI principal
+        if (this.currentUI) {
+            this.closeCurrentUI();
+        }
+
+        // Cerrar install progress
+        const installUI = document.getElementById('install-progress-ui');
+        if (installUI) {
+            installUI.classList.remove('active');
+            if (window.InstallProgress) {
+                InstallProgress.reset();
+            }
+        }
+
+        // Cerrar radial menu
+        const radialUI = document.getElementById('radial-ui');
+        if (radialUI) {
+            radialUI.classList.remove('show');
+        }
+
+        Utils.log('All UIs closed', 'info');
+    },
+
+    // ========================================================================
+    // RADIAL MENU
+    // ========================================================================
     openRadialMenu(options) {
-        const radialContainer = document.getElementById('radial-ui'); // Asegúrate de crear este div en index.html si no existe
-        if (!radialContainer) return;
+        const radialContainer = document.getElementById('radial-ui');
+        if (!radialContainer) {
+            Utils.log('radial-ui element not found', 'error');
+            return;
+        }
 
-        // Generar HTML de los hexágonos basado en las opciones
-        let html = `<div class="hexagon-circle">
-                    <div class="hexagon-close" onclick="MechanicUI.post('closeRadial', {})">
-                        <div class="hexagon-close-button"><i class="fas fa-times hexagon-close-icon"></i></div>
-                    </div>`;
-
-        // Posicionamiento de hexágonos (simplificado)
-        options.forEach((opt, index) => {
-            // Calcular posición (puedes ajustar clases CSS para posicionar los 6 hexágonos)
-            // Aquí asumimos que el CSS maneja :nth-child o clases específicas
-            html += `
-            <div class="hexagon hex-${index + 1}" onclick="MechanicUI.handleRadialClick('${opt.event}', '${opt.id}')">
-                <div class="hexagon-button">
-                    <div class="hexagon-content">
-                        <div class="hexagon-icon-container"><i class="fas ${opt.icon} hexagon-icon"></i></div>
-                        <div class="hexagon-title">${opt.label}</div>
+        // Generar HTML
+        let html = `
+            <div class="hexagon-circle">
+                <div class="hexagon-close" onclick="MechanicUI.closeRadialMenu()">
+                    <div class="hexagon-close-button">
+                        <i class="fas fa-times hexagon-close-icon"></i>
                     </div>
                 </div>
-            </div>
         `;
+
+        options.forEach((opt, index) => {
+            html += `
+                <div class="hexagon hex-${index + 1}" 
+                     onclick="MechanicUI.handleRadialClick('${opt.event}', '${opt.id}')">
+                    <div class="hexagon-button">
+                        <div class="hexagon-content">
+                            <div class="hexagon-icon-container">
+                                <i class="fas ${opt.icon} hexagon-icon"></i>
+                            </div>
+                            <div class="hexagon-title">${opt.label}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
         });
 
         html += `</div>`;
 
         radialContainer.innerHTML = html;
-        radialContainer.classList.add('show'); // Clase CSS para mostrar
+        radialContainer.classList.add('show');
+        
+        Utils.log(`Radial menu opened with ${options.length} options`, 'info');
     },
 
     closeRadialMenu() {
@@ -191,59 +293,41 @@ const MechanicUI = {
         if (radialContainer) {
             radialContainer.classList.remove('show');
         }
-        this.post('closeRadial', {});
+        
+        Utils.post('closeRadial', {});
+        Utils.log('Radial menu closed', 'info');
     },
 
     handleRadialClick(event, id) {
-        this.post('radialClick', { event: event, id: id });
-    },
-    // ------------------------------------------------------------------------
-    // Comunicación NUI (JavaScript -> Lua)
-    // ------------------------------------------------------------------------
-    post(endpoint, data) {
-        return fetch(`https://${this.resourceName}/${endpoint}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        }).then(resp => resp.json());
+        Utils.log(`Radial clicked: ${event} (${id})`, 'info');
+        Utils.post('radialClick', { event: event, id: id });
     },
 
-    // ------------------------------------------------------------------------
-    // Utilidades
-    // ------------------------------------------------------------------------
-    formatMoney(amount) {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 0
-        }).format(amount);
-    },
-
-    formatDate(dateString) {
-        const date = new Date(dateString);
-        return new Intl.DateTimeFormat('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        }).format(date);
-    },
-
-    showNotification(message, type = 'info') {
-        // Implementar sistema de notificaciones si es necesario
-        console.log(`[${type.toUpperCase()}] ${message}`);
+    // ========================================================================
+    // NOTIFICACIONES (Opcional)
+    // ========================================================================
+    showNotification(message, type = 'info', duration = 5000) {
+        // Aquí puedes implementar tu sistema de notificaciones custom
+        // O simplemente usar console.log
+        Utils.log(message, type);
+        
+        // Ejemplo básico de notificación visual:
+        // const notif = document.createElement('div');
+        // notif.className = `notification notification-${type}`;
+        // notif.textContent = message;
+        // document.body.appendChild(notif);
+        // setTimeout(() => notif.remove(), duration);
     }
 };
 
 // ----------------------------------------------------------------------------
 // Inicializar cuando el DOM esté listo
 // ----------------------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => MechanicUI.init());
+} else {
     MechanicUI.init();
-});
+}
 
 // Exponer globalmente
 window.MechanicUI = MechanicUI;

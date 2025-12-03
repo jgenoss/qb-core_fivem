@@ -45,19 +45,13 @@ client_scripts {
 -- ============================================================================
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
-    
-    -- Custom integrations (editables)
     'server/custom/society/*.lua',
     'server/custom/inventory/*.lua',
-    
-    -- Core modules (protegibles con escrow)
     'server/modules/database.lua',
     'server/modules/shops.lua',
     'server/modules/employees.lua',
-    'server/modules/orders.lua',
+    'server/modules/orders.lua',  -- ← DEBE ESTAR
     'server/modules/statistics.lua',
-    
-    -- Entrada principal
     'server/server.lua'
 }
 

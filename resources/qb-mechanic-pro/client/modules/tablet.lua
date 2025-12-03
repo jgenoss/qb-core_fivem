@@ -1,83 +1,124 @@
 -- ============================================================================
--- QB-MECHANIC-PRO - Tablet Module COMPLETO (Client)
+-- QB-MECHANIC-PRO - Tablet Module (Client) COMPLETO
 -- ============================================================================
 
-local tabletOpen = false
-local currentShopId = nil
-local currentShopData = nil
-
 -- ----------------------------------------------------------------------------
--- Evento: Abrir tablet
+-- Función Auxiliar: Buscar vehículo por placa
 -- ----------------------------------------------------------------------------
-RegisterNetEvent('qb-mechanic:client:openTabletUI', function(shopId, shopData)
-    tabletOpen = true
-    currentShopId = shopId
-    currentShopData = shopData
+local function GetClosestVehicleWithPlate(targetPlate)
+    local vehicles = GetGamePool('CVehicle')
+    local playerCoords = GetEntityCoords(PlayerPedId())
     
-    SetNuiFocus(true, true)
-    SendNUIMessage({
-        action = 'openTablet',
-        shop = shopData
-    })
-end)
-
-RegisterNetEvent('qb-mechanic:client:receiveShopData', function(shopData)
-    currentShopData = shopData
+    targetPlate = targetPlate:gsub("%s+", "") -- Remover espacios
     
-    if tabletOpen then
-        SendNUIMessage({
-            action = 'updateShopData',
-            shop = shopData
-        })
+    for _, veh in pairs(vehicles) do
+        local plate = GetVehicleNumberPlateText(veh):gsub("%s+", "")
+        
+        if plate == targetPlate then
+            local distance = #(playerCoords - GetEntityCoords(veh))
+            if distance < 10.0 then
+                return veh
+            end
+        end
     end
+    
+    return nil
+end
+
+-- ----------------------------------------------------------------------------
+-- Event: Comenzar instalación de modificaciones
+-- ----------------------------------------------------------------------------
+RegisterNetEvent('qb-mechanic:client:beginInstallation', function(order)
+    local vehicle = GetClosestVehicleWithPlate(order.vehicle_plate)
+    
+    if not vehicle then
+        exports['qb-mechanic-pro']:Notify('Vehicle not found nearby. Bring it closer.', 'error')
+        TriggerServerEvent('qb-mechanic:server:completeOrder', order.id, false)
+        return
+    end
+    
+    -- Mostrar UI de progreso
+    SendNUIMessage({
+        action = 'showInstallProgress',
+        order = order
+    })
+    
+    -- Ejecutar instalación usando la función de workshop.lua
+    exports['qb-mechanic-pro']:InstallModifications(vehicle, order.modifications, function(success)
+        -- Guardar vehículo en base de datos (usando qb-core o qb-vehiclekeys)
+        if success then
+            local props = exports['qb-mechanic-pro']:GetVehicleProperties(vehicle)
+            
+            -- Intentar guardar con diferentes sistemas
+            if GetResourceState('qb-vehiclekeys') == 'started' then
+                TriggerServerEvent('qb-vehiclekeys:server:updateVehicle', order.vehicle_plate, props)
+            end
+            
+            if GetResourceState('qb-garages') == 'started' then
+                TriggerServerEvent('qb-garages:server:updateVehicle', order.vehicle_plate, props)
+            end
+            
+            -- Fallback genérico
+            TriggerServerEvent('qb-mechanic:server:saveVehicleProperties', order.vehicle_plate, props)
+        end
+        
+        -- Notificar servidor de finalización
+        TriggerServerEvent('qb-mechanic:server:completeOrder', order.id, success)
+        
+        -- Ocultar UI de progreso
+        SendNUIMessage({
+            action = 'hideInstallProgress'
+        })
+    end)
 end)
 
 -- ----------------------------------------------------------------------------
--- CALLBACKS: Gestión de Empleados
+-- CALLBACKS NUI: Gestión de Empleados
 -- ----------------------------------------------------------------------------
 RegisterNUICallback('hireEmployee', function(data, cb)
-    TriggerServerEvent('qb-mechanic:server:hireEmployee', data.shopId, data.targetServerId)
-    cb({ success = true })
+    local targetId = tonumber(data.targetId)
+    
+    if not targetId then
+        cb({success = false, message = 'Invalid server ID'})
+        return
+    end
+    
+    TriggerServerEvent('qb-mechanic:server:hireEmployee', data.shopId, targetId)
+    cb({success = true})
 end)
 
 RegisterNUICallback('fireEmployee', function(data, cb)
-    TriggerServerEvent('qb-mechanic:server:fireEmployee', data.shopId, data.employeeCitizenid)
-    cb({ success = true })
+    TriggerServerEvent('qb-mechanic:server:fireEmployee', data.shopId, data.citizenid)
+    cb({success = true})
 end)
 
 RegisterNUICallback('updateEmployeeGrade', function(data, cb)
-    TriggerServerEvent('qb-mechanic:server:updateEmployeeGrade', data.shopId, data.employeeCitizenid, data.newGrade)
-    cb({ success = true })
+    TriggerServerEvent('qb-mechanic:server:updateEmployeeGrade', data.shopId, data.citizenid, data.grade)
+    cb({success = true})
+end)
+
+RegisterNUICallback('getEmployees', function(data, cb)
+    QBCore.Functions.TriggerCallback('qb-mechanic:server:getEmployees', function(employees)
+        cb({success = true, employees = employees})
+    end, data.shopId)
 end)
 
 -- ----------------------------------------------------------------------------
--- CALLBACKS: Gestión de Órdenes
+-- CALLBACKS NUI: Gestión de Órdenes
 -- ----------------------------------------------------------------------------
-RegisterNUICallback('startOrderInstallation', function(data, cb)
-    local vehicle, distance = exports['qb-mechanic-pro']:GetClosestVehicle()
-    
-    if not vehicle then
-        cb({success = false, message = 'No vehicle nearby'})
-        return
-    end
-    
-    -- Verificar placa
-    local plate = GetVehicleNumberPlateText(vehicle)
-    if plate ~= data.vehiclePlate then
-        cb({success = false, message = 'Wrong vehicle. Expected: ' .. data.vehiclePlate})
-        return
-    end
-    
-    -- Verificar que el vehículo esté en el carlift (opcional)
-    local isRaised = Entity(vehicle).state.carliftRaised or false
-    if not isRaised then
-        exports['qb-mechanic-pro']:Notify('Vehicle must be on carlift first', 'error')
-        cb({success = false, message = 'Vehicle not on carlift'})
-        return
-    end
-    
-    -- Iniciar instalación
-    TriggerEvent('qb-mechanic:client:installModifications', data.orderId, vehicle, data.modifications)
+RegisterNUICallback('getOrders', function(data, cb)
+    QBCore.Functions.TriggerCallback('qb-mechanic:server:getOrders', function(orders)
+        cb({success = true, orders = orders})
+    end, data.shopId, data.status)
+end)
+
+RegisterNUICallback('startInstallation', function(data, cb)
+    TriggerServerEvent('qb-mechanic:server:startInstallation', data.orderId)
+    cb({success = true})
+end)
+
+RegisterNUICallback('cancelOrder', function(data, cb)
+    TriggerServerEvent('qb-mechanic:server:cancelOrder', data.orderId, data.reason)
     cb({success = true})
 end)
 
@@ -88,29 +129,30 @@ RegisterNUICallback('getOrderDetails', function(data, cb)
 end)
 
 -- ----------------------------------------------------------------------------
--- CALLBACKS: Gestión Financiera
+-- CALLBACKS NUI: Estadísticas y Dashboard
 -- ----------------------------------------------------------------------------
-RegisterNUICallback('depositMoney', function(data, cb)
-    local amount = tonumber(data.amount)
-    
-    if not amount or amount <= 0 then
-        cb({success = false, message = 'Invalid amount'})
-        return
-    end
-    
-    TriggerServerEvent('qb-mechanic:server:depositMoney', data.shopId, amount)
+RegisterNUICallback('getDashboardStats', function(data, cb)
+    QBCore.Functions.TriggerCallback('qb-mechanic:server:getDashboardStats', function(stats)
+        cb({success = true, stats = stats})
+    end, data.shopId)
+end)
+
+RegisterNUICallback('getRevenueData', function(data, cb)
+    QBCore.Functions.TriggerCallback('qb-mechanic:server:getRevenueData', function(revenue)
+        cb({success = true, revenue = revenue})
+    end, data.shopId, data.period)
+end)
+
+-- ----------------------------------------------------------------------------
+-- CALLBACKS NUI: Finanzas
+-- ----------------------------------------------------------------------------
+RegisterNUICallback('withdrawMoney', function(data, cb)
+    TriggerServerEvent('qb-mechanic:server:withdrawMoney', data.shopId, data.amount)
     cb({success = true})
 end)
 
-RegisterNUICallback('withdrawMoney', function(data, cb)
-    local amount = tonumber(data.amount)
-    
-    if not amount or amount <= 0 then
-        cb({success = false, message = 'Invalid amount'})
-        return
-    end
-    
-    TriggerServerEvent('qb-mechanic:server:withdrawMoney', data.shopId, amount)
+RegisterNUICallback('depositMoney', function(data, cb)
+    TriggerServerEvent('qb-mechanic:server:depositMoney', data.shopId, data.amount)
     cb({success = true})
 end)
 
@@ -121,7 +163,7 @@ RegisterNUICallback('getTransactionHistory', function(data, cb)
 end)
 
 -- ----------------------------------------------------------------------------
--- CALLBACKS: Configuración del Taller
+-- CALLBACKS NUI: Configuración del Taller
 -- ----------------------------------------------------------------------------
 RegisterNUICallback('updateShopSettings', function(data, cb)
     TriggerServerEvent('qb-mechanic:server:updateShopSettings', data.shopId, data.settings)
@@ -139,108 +181,67 @@ RegisterNUICallback('saveShopName', function(data, cb)
 end)
 
 -- ----------------------------------------------------------------------------
--- CALLBACKS: Dashboard y Estadísticas
+-- CALLBACKS NUI: Solicitar datos del taller
 -- ----------------------------------------------------------------------------
-RegisterNUICallback('getDashboardStats', function(data, cb)
-    QBCore.Functions.TriggerCallback('qb-mechanic:server:getDashboardStats', function(stats)
-        cb({success = true, stats = stats})
-    end, data.shopId)
-end)
-
 RegisterNUICallback('requestShopData', function(data, cb)
     TriggerServerEvent('qb-mechanic:server:requestShopData', data.shopId)
     cb('ok')
 end)
 
 -- ----------------------------------------------------------------------------
--- CALLBACKS: Cerrar UI
+-- CALLBACKS NUI: Cerrar UI
 -- ----------------------------------------------------------------------------
-RegisterNUICallback('closeTablet', function(_, cb)
+RegisterNUICallback('closeTablet', function(data, cb)
     SetNuiFocus(false, false)
-    tabletOpen = false
-    currentShopId = nil
+    SendNUIMessage({ action = 'closeTablet' })
     cb('ok')
 end)
 
 -- ----------------------------------------------------------------------------
--- Evento: Instalar modificaciones (llamado desde startOrderInstallation)
+-- Event: Recibir datos del taller desde servidor
 -- ----------------------------------------------------------------------------
-RegisterNetEvent('qb-mechanic:client:installModifications', function(orderId, vehicle, modifications)
-    local totalSteps = #modifications
-    
-    -- Actualizar estado a "installing"
-    TriggerServerEvent('qb-mechanic:server:updateOrderStatus', orderId, 'installing')
-    
-    -- Mostrar progreso en NUI
+RegisterNetEvent('qb-mechanic:client:receiveShopData', function(shopData)
+    SetNuiFocus(true, true)
     SendNUIMessage({
-        action = 'showInstallProgress',
-        orderId = orderId,
-        totalSteps = totalSteps
+        action = 'openTablet',
+        shop = shopData
     })
+end)
+
+-- ----------------------------------------------------------------------------
+-- Event: Actualizar lista de empleados
+-- ----------------------------------------------------------------------------
+RegisterNetEvent('qb-mechanic:client:updateEmployees', function(employees)
+    SendNUIMessage({
+        action = 'updateEmployees',
+        employees = employees
+    })
+end)
+
+-- ----------------------------------------------------------------------------
+-- Event: Actualizar lista de órdenes
+-- ----------------------------------------------------------------------------
+RegisterNetEvent('qb-mechanic:client:updateOrders', function(orders)
+    SendNUIMessage({
+        action = 'updateOrders',
+        orders = orders
+    })
+end)
+
+-- ----------------------------------------------------------------------------
+-- Comando: Abrir Tablet (para testing)
+-- ----------------------------------------------------------------------------
+RegisterCommand('tablet', function()
+    local job, grade = exports['qb-mechanic-pro']:GetPlayerJob()
     
-    -- Instalar cada modificación
-    for i, mod in ipairs(modifications) do
-        SendNUIMessage({
-            action = 'updateInstallProgress',
-            step = i,
-            total = totalSteps,
-            modification = mod
-        })
-        
-        -- Aplicar modificación
-        SetVehicleModKit(vehicle, 0)
-        
-        if mod.type == 'engine' then
-            SetVehicleMod(vehicle, 11, mod.level or mod.modIndex, false)
-        elseif mod.type == 'brakes' then
-            SetVehicleMod(vehicle, 12, mod.level or mod.modIndex, false)
-        elseif mod.type == 'transmission' then
-            SetVehicleMod(vehicle, 13, mod.level or mod.modIndex, false)
-        elseif mod.type == 'suspension' then
-            SetVehicleMod(vehicle, 15, mod.level or mod.modIndex, false)
-        elseif mod.type == 'turbo' then
-            ToggleVehicleMod(vehicle, 18, mod.enabled or true)
-        elseif mod.type == 'spoiler' then
-            SetVehicleMod(vehicle, 0, mod.modIndex, false)
-        elseif mod.type == 'fbumper' then
-            SetVehicleMod(vehicle, 1, mod.modIndex, false)
-        elseif mod.type == 'rbumper' then
-            SetVehicleMod(vehicle, 2, mod.modIndex, false)
-        elseif mod.type == 'skirts' then
-            SetVehicleMod(vehicle, 3, mod.modIndex, false)
-        elseif mod.type == 'exhaust' then
-            SetVehicleMod(vehicle, 4, mod.modIndex, false)
-        elseif mod.type == 'grille' then
-            SetVehicleMod(vehicle, 6, mod.modIndex, false)
-        elseif mod.type == 'hood' then
-            SetVehicleMod(vehicle, 7, mod.modIndex, false)
+    -- Buscar taller del jugador
+    local shops = exports['qb-mechanic-pro']:GetAllShops()
+    for _, shop in pairs(shops) do
+        if shop.job_name == job then
+            TriggerEvent('qb-mechanic:client:openTablet', shop.id, 'dashboard')
+            return
         end
-        
-        -- Esperar animación
-        Wait(2000)
     end
     
-    -- Obtener propiedades finales
-    local props = exports['qb-mechanic-pro']:GetVehicleProperties(vehicle)
-    
-    -- Completar orden
-    TriggerServerEvent('qb-mechanic:server:completeOrder', orderId, VehToNet(vehicle), props)
-    
-    -- Ocultar progreso
-    SendNUIMessage({
-        action = 'hideInstallProgress'
-    })
-    
-    exports['qb-mechanic-pro']:Notify('Modifications installed successfully', 'success')
-end)
-
--- ----------------------------------------------------------------------------
--- Exports
--- ----------------------------------------------------------------------------
-exports('IsTabletOpen', function()
-    return tabletOpen
-end)
-
-exports('GetCurrentShop', function()
-    return currentShopData
-end)
+    exports['qb-mechanic-pro']:Notify('You are not employed at any mechanic shop', 'error')
+end, false)

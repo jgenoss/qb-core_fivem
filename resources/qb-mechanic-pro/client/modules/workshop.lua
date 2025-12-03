@@ -1,230 +1,156 @@
 -- ============================================================================
--- QB-MECHANIC-PRO - Workshop Module COMPLETO (Client)
+-- QB-MECHANIC-PRO - Workshop Module (Client) COMPLETO
 -- ============================================================================
 
-local currentVehicle = nil
-local vehicleInZone = false
-local nearestShop = nil
-local zonesCreated = false
-
 -- ----------------------------------------------------------------------------
--- Función: Obtener vehículo más cercano
--- ----------------------------------------------------------------------------
-function GetClosestVehicle()
-    local playerPed = PlayerPedId()
-    local playerCoords = GetEntityCoords(playerPed)
-    local vehicle = nil
-    local minDistance = Config.Orders.MaxVehicleDistance or 50.0
-    
-    for veh in EnumerateVehicles() do
-        local vehCoords = GetEntityCoords(veh)
-        local distance = #(playerCoords - vehCoords)
-        
-        if distance < minDistance then
-            minDistance = distance
-            vehicle = veh
-        end
-    end
-    
-    return vehicle, minDistance
-end
-
-function EnumerateVehicles()
-    return coroutine.wrap(function()
-        local handle, vehicle = FindFirstVehicle()
-        local success
-        
-        repeat
-            coroutine.yield(vehicle)
-            success, vehicle = FindNextVehicle(handle)
-        until not success
-        
-        EndFindVehicle(handle)
-    end)
-end
-
--- ----------------------------------------------------------------------------
--- Función: Obtener propiedades del vehículo
--- ----------------------------------------------------------------------------
-function GetVehicleProperties(vehicle)
-    if Config.Framework == 'qbcore' or Config.Framework == 'qbox' then
-        return QBCore.Functions.GetVehicleProperties(vehicle)
-    elseif Config.Framework == 'esx' then
-        return ESX.Game.GetVehicleProperties(vehicle)
-    end
-end
-
-function SetVehicleProperties(vehicle, props)
-    if Config.Framework == 'qbcore' or Config.Framework == 'qbox' then
-        QBCore.Functions.SetVehicleProperties(vehicle, props)
-    elseif Config.Framework == 'esx' then
-        ESX.Game.SetVehicleProperties(vehicle, props)
-    end
-end
-
--- ----------------------------------------------------------------------------
--- Event: Crear zonas de interacción para todos los talleres
+-- Event: Crear zonas de interacción para talleres
 -- ----------------------------------------------------------------------------
 RegisterNetEvent('qb-mechanic:client:createShopZones', function(shops)
-    if zonesCreated then return end
-    zonesCreated = true
-    
     for _, shop in pairs(shops) do
         CreateShopZones(shop)
     end
 end)
 
 -- ----------------------------------------------------------------------------
--- Función: Crear zonas para un taller específico
+-- Función: Crear todas las zonas de un taller
 -- ----------------------------------------------------------------------------
 function CreateShopZones(shop)
     if not shop.config_data or not shop.config_data.locations then return end
     
     local locations = shop.config_data.locations
     
-    -- Sistema de interacción seleccionado
-    if Config.Interact == 'qb-target' or Config.Interact == 'ox_target' then
-        CreateTargetZones(shop, locations)
-    elseif Config.Interact == 'ox_lib' then
-        CreateTextUIZones(shop, locations)
-    end
-end
-
--- ----------------------------------------------------------------------------
--- Función: Crear zonas con qb-target/ox_target
--- ----------------------------------------------------------------------------
-function CreateTargetZones(shop, locations)
-    local targetExport = Config.Interact == 'qb-target' and 'qb-target' or 'ox_target'
-    
-    -- Zona de Duty
-    if locations.duty then
-        local loc = locations.duty
-        if Config.Interact == 'qb-target' then
-            exports['qb-target']:AddBoxZone('mechanic_duty_'..shop.id, 
-                vector3(loc.x, loc.y, loc.z), 1.5, 1.5, {
-                name = 'mechanic_duty_'..shop.id,
-                heading = loc.heading or 0,
-                debugPoly = Config.Debug,
-                minZ = loc.z - 1,
-                maxZ = loc.z + 2,
-            }, {
-                options = {
-                    {
-                        icon = 'fas fa-clock',
-                        label = 'Toggle Duty',
-                        job = shop.job_name,
-                        action = function()
-                            TriggerServerEvent('qb-mechanic:server:toggleDuty', shop.id)
-                        end
+    -- Zonas de Duty (On/Off duty)
+    if locations.duty and shop.config_data.features.enable_duty then
+        for i, loc in ipairs(locations.duty) do
+            if Config.Interact == 'qb-target' then
+                exports['qb-target']:AddBoxZone('mechanic_duty_'..shop.id..'_'..i, 
+                    vector3(loc.x, loc.y, loc.z), 1.5, 1.5, {
+                    name = 'mechanic_duty_'..shop.id..'_'..i,
+                    heading = loc.heading or 0,
+                    debugPoly = Config.Debug,
+                    minZ = loc.z - 1,
+                    maxZ = loc.z + 2,
+                }, {
+                    options = {
+                        {
+                            icon = 'fas fa-briefcase',
+                            label = 'Toggle Duty',
+                            job = shop.job_name,
+                            action = function()
+                                TriggerServerEvent('qb-mechanic:server:toggleDuty')
+                            end
+                        }
+                    },
+                    distance = 2.5
+                })
+            else -- ox_lib
+                exports.ox_target:addBoxZone({
+                    coords = vector3(loc.x, loc.y, loc.z),
+                    size = vector3(1.5, 1.5, 2),
+                    rotation = loc.heading or 0,
+                    debug = Config.Debug,
+                    options = {
+                        {
+                            icon = 'fa-solid fa-briefcase',
+                            label = 'Toggle Duty',
+                            groups = shop.job_name,
+                            onSelect = function()
+                                TriggerServerEvent('qb-mechanic:server:toggleDuty')
+                            end
+                        }
                     }
-                },
-                distance = 2.5
-            })
-        else -- ox_target
-            exports.ox_target:addBoxZone({
-                coords = vector3(loc.x, loc.y, loc.z),
-                size = vector3(1.5, 1.5, 2),
-                rotation = loc.heading or 0,
-                debug = Config.Debug,
-                options = {
-                    {
-                        icon = 'fa-solid fa-clock',
-                        label = 'Toggle Duty',
-                        groups = shop.job_name,
-                        onSelect = function()
-                            TriggerServerEvent('qb-mechanic:server:toggleDuty', shop.id)
-                        end
-                    }
-                }
-            })
+                })
+            end
         end
     end
     
-    -- Zona de Stash
+    -- Zonas de Stash
     if locations.stash and shop.config_data.features.enable_stash then
-        local loc = locations.stash
-        if Config.Interact == 'qb-target' then
-            exports['qb-target']:AddBoxZone('mechanic_stash_'..shop.id, 
-                vector3(loc.x, loc.y, loc.z), 1.5, 1.5, {
-                name = 'mechanic_stash_'..shop.id,
-                heading = loc.heading or 0,
-                debugPoly = Config.Debug,
-                minZ = loc.z - 1,
-                maxZ = loc.z + 2,
-            }, {
-                options = {
-                    {
-                        icon = 'fas fa-box',
-                        label = 'Open Stash',
-                        job = shop.job_name,
-                        action = function()
-                            TriggerEvent('qb-mechanic:client:openStash', shop.id)
-                        end
+        for i, loc in ipairs(locations.stash) do
+            if Config.Interact == 'qb-target' then
+                exports['qb-target']:AddBoxZone('mechanic_stash_'..shop.id..'_'..i, 
+                    vector3(loc.x, loc.y, loc.z), 1.5, 1.5, {
+                    name = 'mechanic_stash_'..shop.id..'_'..i,
+                    heading = loc.heading or 0,
+                    debugPoly = Config.Debug,
+                    minZ = loc.z - 1,
+                    maxZ = loc.z + 2,
+                }, {
+                    options = {
+                        {
+                            icon = 'fas fa-toolbox',
+                            label = 'Open Stash',
+                            job = shop.job_name,
+                            action = function()
+                                TriggerEvent('qb-mechanic:client:openStash', shop.id)
+                            end
+                        }
+                    },
+                    distance = 2.5
+                })
+            else
+                exports.ox_target:addBoxZone({
+                    coords = vector3(loc.x, loc.y, loc.z),
+                    size = vector3(1.5, 1.5, 2),
+                    rotation = loc.heading or 0,
+                    debug = Config.Debug,
+                    options = {
+                        {
+                            icon = 'fa-solid fa-toolbox',
+                            label = 'Open Stash',
+                            groups = shop.job_name,
+                            onSelect = function()
+                                TriggerEvent('qb-mechanic:client:openStash', shop.id)
+                            end
+                        }
                     }
-                },
-                distance = 2.5
-            })
-        else -- ox_target
-            exports.ox_target:addBoxZone({
-                coords = vector3(loc.x, loc.y, loc.z),
-                size = vector3(1.5, 1.5, 2),
-                rotation = loc.heading or 0,
-                debug = Config.Debug,
-                options = {
-                    {
-                        icon = 'fa-solid fa-box',
-                        label = 'Open Stash',
-                        groups = shop.job_name,
-                        onSelect = function()
-                            TriggerEvent('qb-mechanic:client:openStash', shop.id)
-                        end
-                    }
-                }
-            })
+                })
+            end
         end
     end
     
-    -- Zona de Boss Menu (Tablet)
-    if locations.bossmenu then
-        local loc = locations.bossmenu
-        if Config.Interact == 'qb-target' then
-            exports['qb-target']:AddBoxZone('mechanic_boss_'..shop.id, 
-                vector3(loc.x, loc.y, loc.z), 1.5, 1.5, {
-                name = 'mechanic_boss_'..shop.id,
-                heading = loc.heading or 0,
-                debugPoly = Config.Debug,
-                minZ = loc.z - 1,
-                maxZ = loc.z + 2,
-            }, {
-                options = {
-                    {
-                        icon = 'fas fa-tablet',
-                        label = 'Open Tablet',
-                        job = shop.job_name,
-                        action = function()
-                            TriggerEvent('qb-mechanic:client:openTablet', shop.id, 'dashboard')
-                        end
+    -- Zonas de Tablet
+    if locations.tablet and shop.config_data.features.enable_tablet then
+        for i, loc in ipairs(locations.tablet) do
+            if Config.Interact == 'qb-target' then
+                exports['qb-target']:AddBoxZone('mechanic_tablet_'..shop.id..'_'..i, 
+                    vector3(loc.x, loc.y, loc.z), 1.5, 1.5, {
+                    name = 'mechanic_tablet_'..shop.id..'_'..i,
+                    heading = loc.heading or 0,
+                    debugPoly = Config.Debug,
+                    minZ = loc.z - 1,
+                    maxZ = loc.z + 2,
+                }, {
+                    options = {
+                        {
+                            icon = 'fas fa-tablet',
+                            label = 'Open Tablet',
+                            job = shop.job_name,
+                            action = function()
+                                TriggerEvent('qb-mechanic:client:openTablet', shop.id, 'dashboard')
+                            end
+                        }
+                    },
+                    distance = 2.5
+                })
+            else
+                exports.ox_target:addBoxZone({
+                    coords = vector3(loc.x, loc.y, loc.z),
+                    size = vector3(1.5, 1.5, 2),
+                    rotation = loc.heading or 0,
+                    debug = Config.Debug,
+                    options = {
+                        {
+                            icon = 'fa-solid fa-tablet',
+                            label = 'Open Tablet',
+                            groups = shop.job_name,
+                            onSelect = function()
+                                TriggerEvent('qb-mechanic:client:openTablet', shop.id, 'dashboard')
+                            end
+                        }
                     }
-                },
-                distance = 2.5
-            })
-        else -- ox_target
-            exports.ox_target:addBoxZone({
-                coords = vector3(loc.x, loc.y, loc.z),
-                size = vector3(1.5, 1.5, 2),
-                rotation = loc.heading or 0,
-                debug = Config.Debug,
-                options = {
-                    {
-                        icon = 'fa-solid fa-tablet',
-                        label = 'Open Tablet',
-                        groups = shop.job_name,
-                        onSelect = function()
-                            TriggerEvent('qb-mechanic:client:openTablet', shop.id, 'dashboard')
-                        end
-                    }
-                }
-            })
+                })
+            end
         end
     end
     
@@ -251,7 +177,7 @@ function CreateTargetZones(shop, locations)
                     },
                     distance = 3.0
                 })
-            else -- ox_target
+            else
                 exports.ox_target:addBoxZone({
                     coords = vector3(loc.x, loc.y, loc.z),
                     size = vector3(3.0, 3.0, 2),
@@ -271,151 +197,8 @@ function CreateTargetZones(shop, locations)
         end
     end
     
-    -- Zonas de Carlift
-    if locations.carlift and shop.config_data.features.enable_carlift then
-        for i, loc in ipairs(locations.carlift) do
-            if Config.Interact == 'qb-target' then
-                exports['qb-target']:AddBoxZone('mechanic_carlift_'..shop.id..'_'..i, 
-                    vector3(loc.x, loc.y, loc.z), 4.0, 6.0, {
-                    name = 'mechanic_carlift_'..shop.id..'_'..i,
-                    heading = loc.heading or 0,
-                    debugPoly = Config.Debug,
-                    minZ = loc.z - 1,
-                    maxZ = loc.z + 3,
-                }, {
-                    options = {
-                        {
-                            icon = 'fas fa-arrow-up',
-                            label = 'Use Carlift',
-                            job = shop.job_name,
-                            action = function()
-                                TriggerEvent('qb-mechanic:client:handleCarlift', shop.id, loc)
-                            end
-                        }
-                    },
-                    distance = 3.0
-                })
-            else -- ox_target
-                exports.ox_target:addBoxZone({
-                    coords = vector3(loc.x, loc.y, loc.z),
-                    size = vector3(4.0, 6.0, 3),
-                    rotation = loc.heading or 0,
-                    debug = Config.Debug,
-                    options = {
-                        {
-                            icon = 'fa-solid fa-arrow-up',
-                            label = 'Use Carlift',
-                            groups = shop.job_name,
-                            onSelect = function()
-                                TriggerEvent('qb-mechanic:client:handleCarlift', shop.id, loc)
-                            end
-                        }
-                    }
-                })
-            end
-        end
-    end
-end
-
--- ----------------------------------------------------------------------------
--- Función: Crear zonas con ox_lib textui
--- ----------------------------------------------------------------------------
-function CreateTextUIZones(shop, locations)
-    -- Zona de Duty
-    if locations.duty then
-        local loc = locations.duty
-        local point = lib.points.new({
-            coords = vector3(loc.x, loc.y, loc.z),
-            distance = 2.5,
-        })
-        
-        function point:onEnter()
-            lib.showTextUI('[E] - Toggle Duty', {position = 'left-center'})
-        end
-        
-        function point:nearby()
-            if IsControlJustReleased(0, 38) then -- E
-                TriggerServerEvent('qb-mechanic:server:toggleDuty', shop.id)
-            end
-        end
-        
-        function point:onExit()
-            lib.hideTextUI()
-        end
-    end
-    
-    -- Zona de Stash
-    if locations.stash and shop.config_data.features.enable_stash then
-        local loc = locations.stash
-        local point = lib.points.new({
-            coords = vector3(loc.x, loc.y, loc.z),
-            distance = 2.5,
-        })
-        
-        function point:onEnter()
-            lib.showTextUI('[E] - Open Stash', {position = 'left-center'})
-        end
-        
-        function point:nearby()
-            if IsControlJustReleased(0, 38) then
-                TriggerEvent('qb-mechanic:client:openStash', shop.id)
-            end
-        end
-        
-        function point:onExit()
-            lib.hideTextUI()
-        end
-    end
-    
-    -- Zona de Boss Menu
-    if locations.bossmenu then
-        local loc = locations.bossmenu
-        local point = lib.points.new({
-            coords = vector3(loc.x, loc.y, loc.z),
-            distance = 2.5,
-        })
-        
-        function point:onEnter()
-            lib.showTextUI('[E] - Open Tablet', {position = 'left-center'})
-        end
-        
-        function point:nearby()
-            if IsControlJustReleased(0, 38) then
-                TriggerEvent('qb-mechanic:client:openTablet', shop.id, 'dashboard')
-            end
-        end
-        
-        function point:onExit()
-            lib.hideTextUI()
-        end
-    end
-    
-    -- Zonas de Tuneshop
-    if locations.tuneshop and shop.config_data.features.enable_tuneshop then
-        for i, loc in ipairs(locations.tuneshop) do
-            local point = lib.points.new({
-                coords = vector3(loc.x, loc.y, loc.z),
-                distance = 3.0,
-            })
-            
-            function point:onEnter()
-                lib.showTextUI('[E] - Open Tuning Shop', {position = 'left-center'})
-            end
-            
-            function point:nearby()
-                if IsControlJustReleased(0, 38) then
-                    TriggerEvent('qb-mechanic:client:openTuneshop', shop.id)
-                end
-            end
-            
-            function point:onExit()
-                lib.hideTextUI()
-            end
-        end
-    end
-    
-    -- Zonas de Carlift
-    if locations.carlift and shop.config_data.features.enable_carlift then
+    -- Zonas de Car Lift (si usas ox_lib points)
+    if locations.carlift and Config.Interact == 'ox_lib' then
         for i, loc in ipairs(locations.carlift) do
             local point = lib.points.new({
                 coords = vector3(loc.x, loc.y, loc.z),
@@ -443,7 +226,7 @@ end
 -- Event: Abrir tuneshop
 -- ----------------------------------------------------------------------------
 RegisterNetEvent('qb-mechanic:client:openTuneshop', function(shopId)
-    local vehicle, distance = GetClosestVehicle()
+    local vehicle, distance = exports['qb-mechanic-pro']:GetClosestVehicle()
     
     if not vehicle then
         exports['qb-mechanic-pro']:Notify('No vehicle nearby', 'error')
@@ -456,7 +239,7 @@ RegisterNetEvent('qb-mechanic:client:openTuneshop', function(shopId)
     end
     
     -- Obtener propiedades actuales
-    local props = GetVehicleProperties(vehicle)
+    local props = exports['qb-mechanic-pro']:GetVehicleProperties(vehicle)
     
     -- Entrar al modo tuneshop
     TriggerEvent('qb-mechanic:client:enterTuneshop', vehicle)
@@ -482,19 +265,11 @@ RegisterNetEvent('qb-mechanic:client:openTablet', function(shopId, section)
     TriggerServerEvent('qb-mechanic:server:requestShopData', shopId)
 end)
 
-RegisterNetEvent('qb-mechanic:client:receiveShopData', function(shopData)
-    SetNuiFocus(true, true)
-    SendNUIMessage({
-        action = 'openTablet',
-        shop = shopData
-    })
-end)
-
 -- ----------------------------------------------------------------------------
 -- NUI Callback: Crear orden
 -- ----------------------------------------------------------------------------
 RegisterNUICallback('createOrder', function(data, cb)
-    local vehicle, distance = GetClosestVehicle()
+    local vehicle, distance = exports['qb-mechanic-pro']:GetClosestVehicle()
     
     if not vehicle then
         cb({success = false, message = 'No vehicle nearby'})
@@ -524,6 +299,7 @@ function InstallModifications(vehicle, modifications, callback)
     for _, mod in ipairs(modifications) do
         currentStep = currentStep + 1
         
+        -- Actualizar progreso en UI
         SendNUIMessage({
             action = 'updateInstallProgress',
             step = currentStep,
@@ -531,41 +307,56 @@ function InstallModifications(vehicle, modifications, callback)
             current = mod
         })
         
+        -- Aplicar modificación al vehículo
         ApplyModification(vehicle, mod)
         
+        -- Esperar 2 segundos por cada modificación
         Wait(2000)
     end
     
+    -- Instalación completada exitosamente
     callback(true)
 end
 
+-- ----------------------------------------------------------------------------
+-- Función: Aplicar una modificación individual
+-- ----------------------------------------------------------------------------
 function ApplyModification(vehicle, mod)
     SetVehicleModKit(vehicle, 0)
     
     if mod.type == 'engine' then
-        SetVehicleMod(vehicle, 11, mod.level, false)
+        SetVehicleMod(vehicle, 11, mod.level or 0, false)
     elseif mod.type == 'brakes' then
-        SetVehicleMod(vehicle, 12, mod.level, false)
+        SetVehicleMod(vehicle, 12, mod.level or 0, false)
     elseif mod.type == 'transmission' then
-        SetVehicleMod(vehicle, 13, mod.level, false)
+        SetVehicleMod(vehicle, 13, mod.level or 0, false)
     elseif mod.type == 'suspension' then
-        SetVehicleMod(vehicle, 15, mod.level, false)
+        SetVehicleMod(vehicle, 15, mod.level or 0, false)
+    elseif mod.type == 'armor' then
+        SetVehicleMod(vehicle, 16, mod.level or 0, false)
     elseif mod.type == 'turbo' then
-        ToggleVehicleMod(vehicle, 18, mod.enabled)
+        ToggleVehicleMod(vehicle, 18, mod.enabled or false)
     elseif mod.type == 'spoiler' then
-        SetVehicleMod(vehicle, 0, mod.index, false)
+        SetVehicleMod(vehicle, 0, mod.index or 0, false)
     elseif mod.type == 'fbumper' then
-        SetVehicleMod(vehicle, 1, mod.index, false)
+        SetVehicleMod(vehicle, 1, mod.index or 0, false)
     elseif mod.type == 'rbumper' then
-        SetVehicleMod(vehicle, 2, mod.index, false)
+        SetVehicleMod(vehicle, 2, mod.index or 0, false)
+    elseif mod.type == 'skirts' then
+        SetVehicleMod(vehicle, 3, mod.index or 0, false)
+    elseif mod.type == 'exhaust' then
+        SetVehicleMod(vehicle, 4, mod.index or 0, false)
+    elseif mod.type == 'grille' then
+        SetVehicleMod(vehicle, 6, mod.index or 0, false)
+    elseif mod.type == 'hood' then
+        SetVehicleMod(vehicle, 7, mod.index or 0, false)
+    elseif mod.type == 'roof' then
+        SetVehicleMod(vehicle, 10, mod.index or 0, false)
     end
 end
 
 -- ----------------------------------------------------------------------------
 -- Exports
 -- ----------------------------------------------------------------------------
-exports('GetClosestVehicle', GetClosestVehicle)
-exports('GetVehicleProperties', GetVehicleProperties)
-exports('SetVehicleProperties', SetVehicleProperties)
 exports('InstallModifications', InstallModifications)
 exports('ApplyModification', ApplyModification)
