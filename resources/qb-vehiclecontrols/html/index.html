@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Control Menu</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <transition name="fade">
+            <div v-if="menuVisible" 
+                 class="dashboard-container" 
+                 :style="containerStyle">
+                
+                <div class="dashboard-header" @mousedown="startDrag">
+                    <div class="vehicle-info">
+                        <div class="model">{{ vehicleData.model || 'VEHÍCULO' }}</div>
+                        <div class="plate">{{ vehicleData.plate || '---' }}</div>
+                    </div>
+                    
+                    <div class="header-actions">
+                        <div class="settings-btn" @click.stop="toggleSettings" :class="{ active: showSettings }">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <div class="close-btn" @click.stop="closeMenu">
+                            <i class="fas fa-times"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <transition name="slide-down">
+                    <div v-if="showSettings" class="settings-panel" @mousedown.stop>
+                        <div class="setting-item">
+                            <label><i class="fas fa-expand"></i> Tamaño: {{ ui.scale }}x</label>
+                            <input type="range" min="0.5" max="1.5" step="0.1" v-model.number="ui.scale" @input="saveSettings">
+                        </div>
+                        <div class="setting-item">
+                            <label><i class="fas fa-adjust"></i> Opacidad: {{ ui.opacity }}</label>
+                            <input type="range" min="0.2" max="1.0" step="0.1" v-model.number="ui.opacity" @input="saveSettings">
+                        </div>
+                        <div class="setting-hint">
+                            <i class="fas fa-hand-paper"></i> Arrastra desde el título para mover
+                        </div>
+                        <button class="reset-btn" @click="resetSettings">Resetear Posición</button>
+                    </div>
+                </transition>
+
+                <div class="menu-content" :style="{ opacity: showSettings ? 0.5 : 1 }">
+                    
+                    <div class="section-title">CONTROL GENERAL</div>
+                    <div class="grid-actions">
+                        <div class="action-btn" :class="{ active: vehicleData.engineOn }" @click="toggleEngine">
+                            <i class="fas fa-power-off"></i> <span>Motor</span>
+                        </div>
+                        <div class="action-btn" :class="{ active: vehicleData.lights && vehicleData.lights.hazard }" @click="toggleIndicator('hazard')">
+                            <i class="fas fa-triangle-exclamation"></i> <span>Interm.</span>
+                        </div>
+                        <div class="action-btn" :class="{ active: vehicleData.lights && vehicleData.lights.interior }" @click="toggleInteriorLight">
+                            <i class="fas fa-lightbulb"></i> <span>Interior</span>
+                        </div>
+                    </div>
+
+                    <div class="grid-indicators">
+                        <div class="indicator-btn" :class="{ active: vehicleData.lights && vehicleData.lights.left }" @click="toggleIndicator('left')">
+                            <i class="fas fa-arrow-left"></i>
+                        </div>
+                        <div class="indicator-btn" :class="{ active: vehicleData.lights && vehicleData.lights.right }" @click="toggleIndicator('right')">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+
+                    <div v-if="vehicleData.doors && vehicleData.doors.length > 0">
+                        <div class="section-title">PUERTAS</div>
+                        <div class="grid-compact">
+                            <div v-for="door in vehicleData.doors" 
+                                 :key="'d'+door.index"
+                                 class="compact-btn"
+                                 :class="{ active: door.isOpen }"
+                                 @click="toggleDoor(door.index)">
+                                 <i class="fas" :class="getDoorIcon(door.index, door.isOpen)"></i>
+                                 <span>{{ door.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="vehicleData.windows && vehicleData.windows.length > 0">
+                        <div class="section-title">VENTANAS</div>
+                        <div class="grid-compact">
+                            <div v-for="win in vehicleData.windows" 
+                                 :key="'w'+win.index"
+                                 class="compact-btn window-btn"
+                                 :class="{ active: win.isRolledDown }"
+                                 @click="toggleWindow(win.index)">
+                                 <i class="fas" :class="win.isRolledDown ? 'fa-wind' : 'fa-window-maximize'"></i>
+                                 <span>{{ win.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="footer-hint" v-if="!showSettings">
+                    <i class="fas fa-mouse-pointer"></i> Click der. mantenido para cámara
+                </div>
+
+            </div>
+        </transition>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

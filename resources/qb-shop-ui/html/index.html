@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop UI</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="shop-app" v-if="show" class="market-layout">
+        
+        <!-- SIDEBAR -->
+        <div class="market-sidebar">
+            <div class="market-logo mb-4">
+                <i class="fas fa-store text-primary"></i> Market
+            </div>
+            
+            <div class="category-list">
+                <div class="category-btn" 
+                     :class="{active: selectedCategory === 'all'}" 
+                     @click="selectedCategory = 'all'">
+                    <i class="fas fa-border-all"></i> Todo
+                </div>
+                
+                <div class="category-btn" 
+                     v-for="cat in availableCategories" 
+                     :key="cat.id"
+                     :class="{active: selectedCategory === cat.id}"
+                     @click="selectedCategory = cat.id">
+                    <i :class="'fas fa-' + cat.icon"></i> {{ cat.label }}
+                </div>
+            </div>
+
+            <div class="mt-auto p-3">
+                <button class="btn btn-dark w-100 border-secondary text-muted" @click="closeShop">
+                    <i class="fas fa-sign-out-alt me-2"></i> Salir
+                </button>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="market-main">
+            <div class="market-header">
+                <div>
+                    <h2 class="text-white fw-bold mb-0">{{ shopData.name }}</h2>
+                    <small class="text-muted">Bienvenido</small>
+                </div>
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" v-model="search" placeholder="Buscar producto...">
+                </div>
+            </div>
+
+            <div class="market-grid-container">
+                <div class="market-grid">
+                    <div class="product-card-modern" v-for="item in filteredItems" :key="item.name">
+                        <div class="price-tag">${{ item.price }}</div>
+                        
+                        <div class="prod-img">
+                            <img :src="imgDir + item.image" @error="handleImgErr">
+                        </div>
+                        
+                        <div class="prod-info">
+                            <div class="prod-name">{{ item.label }}</div>
+                            <div class="prod-cat text-muted small">
+                                Disponible: {{ item.amount === -1 ? '∞' : item.amount }}
+                            </div>
+                        </div>
+
+                        <button class="btn-add-cart" @click="addToCart(item)">
+                            <i class="fas fa-plus"></i> Agregar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CART -->
+        <div class="market-cart">
+            <div class="cart-title">
+                <h5>Tu Cesta</h5>
+                <span class="badge bg-primary rounded-pill">{{ cartTotalItems }}</span>
+            </div>
+
+            <div class="cart-items-list">
+                <div v-if="cart.length === 0" class="empty-cart">
+                    <i class="fas fa-shopping-basket"></i>
+                    <p>Cesta vacía</p>
+                </div>
+
+                <div class="cart-item-modern" v-for="(item, index) in cart" :key="index">
+                    <img :src="imgDir + item.image" class="cart-img" @error="handleImgErr">
+                    <div class="cart-details">
+                        <div class="cart-name">{{ item.label }}</div>
+                        <div class="cart-price text-primary">${{ item.price * item.qty }}</div>
+                    </div>
+                    <div class="cart-controls">
+                        <button class="btn-qty" @click="updateQty(index, -1)">-</button>
+                        <span class="qty-val">{{ item.qty }}</span>
+                        <button class="btn-qty" @click="updateQty(index, 1)">+</button>
+                    </div>
+                    <button class="btn-remove" @click="removeFromCart(index)">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="cart-checkout">
+                <div class="total-row">
+                    <span>Total a Pagar</span>
+                    <span class="total-amount text-success">${{ cartTotalPrice }}</span>
+                </div>
+                
+                <div class="checkout-buttons">
+                    <button class="btn-pay btn-cash" @click="checkout('cash')" :disabled="cart.length === 0">
+                        EFECTIVO
+                    </button>
+                    <button class="btn-pay btn-card" @click="checkout('bank')" :disabled="cart.length === 0">
+                        TARJETA
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SCRIPTS EN ORDEN CRÍTICO -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

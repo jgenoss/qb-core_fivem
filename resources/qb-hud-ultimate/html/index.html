@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <title>QBCore Ultimate HUD</title>
+</head>
+
+<body>
+    <div id="app" v-if="show">
+
+        <!-- MENÚ DE EDICIÓN COMPACTO -->
+        <div class="edit-overlay-compact" v-if="editing">
+            <div class="edit-header">
+                <h2><i class="fas fa-cog"></i> CONFIGURACIÓN HUD</h2>
+                <button @click="finishEdit" class="btn-close"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="edit-tabs">
+                <button :class="{ active: activeTab === 'position' }" @click="activeTab = 'position'">
+                    <i class="fas fa-arrows-alt"></i> Posición
+                </button>
+                <button :class="{ active: activeTab === 'appearance' }" @click="activeTab = 'appearance'">
+                    <i class="fas fa-palette"></i> Apariencia
+                </button>
+            </div>
+
+            <!-- TAB: POSICIÓN -->
+            <div v-if="activeTab === 'position'" class="tab-content">
+                <p class="tab-desc">Arrastra los elementos para posicionarlos</p>
+                <div class="quick-actions">
+                    <button @click="toggleOrientation('player')" class="btn-action">
+                        <i class="fas fa-sync-alt"></i> Rotar Status
+                    </button>
+                    <button @click="toggleOrientation('money')" class="btn-action">
+                        <i class="fas fa-exchange-alt"></i> Rotar Dinero
+                    </button>
+                    <button @click="resetPositions" class="btn-action warn">
+                        <i class="fas fa-undo"></i> Reset Posición
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB: APARIENCIA -->
+            <div v-if="activeTab === 'appearance'" class="tab-content">
+                <div class="controls-grid">
+                    <!-- Opacidad de Fondos -->
+                    <div class="control-section">
+                        <h4><i class="fas fa-adjust"></i> Opacidad de Fondos</h4>
+                        <div class="control-item">
+                            <label>
+                                <span><i class="fas fa-user"></i> Status</span>
+                                <span class="value-display">{{ bgOpacity.player.toFixed(1) }}</span>
+                            </label>
+                            <input type="range" min="0" max="10" step="0.5" v-model.number="bgOpacity.player">
+                        </div>
+                        <div class="control-item">
+                            <label>
+                                <span><i class="fas fa-car"></i> Vehículo</span>
+                                <span class="value-display">{{ bgOpacity.vehicle.toFixed(1) }}</span>
+                            </label>
+                            <input type="range" min="0" max="10" step="0.5" v-model.number="bgOpacity.vehicle">
+                        </div>
+                        <div class="control-item">
+                            <label>
+                                <span><i class="fas fa-wallet"></i> Dinero</span>
+                                <span class="value-display">{{ bgOpacity.money.toFixed(1) }}</span>
+                            </label>
+                            <input type="range" min="0" max="10" step="0.5" v-model.number="bgOpacity.money">
+                        </div>
+                        <div class="control-item">
+                            <label>
+                                <span><i class="fas fa-id-card"></i> Badge</span>
+                                <span class="value-display">{{ bgOpacity.badge.toFixed(1) }}</span>
+                            </label>
+                            <input type="range" min="0" max="10" step="0.5" v-model.number="bgOpacity.badge">
+                        </div>
+                    </div>
+
+                    <!-- Tamaño de Elementos -->
+                    <div class="control-section">
+                        <h4><i class="fas fa-expand-arrows-alt"></i> Tamaño</h4>
+                        <div class="control-item">
+                            <label>
+                                <span><i class="fas fa-user"></i> Status</span>
+                                <span class="value-display">{{ scale.player }}%</span>
+                            </label>
+                            <input type="range" min="50" max="150" v-model.number="scale.player">
+                        </div>
+                        <div class="control-item">
+                            <label>
+                                <span><i class="fas fa-car"></i> Vehículo</span>
+                                <span class="value-display">{{ scale.vehicle }}%</span>
+                            </label>
+                            <input type="range" min="50" max="150" v-model.number="scale.vehicle">
+                        </div>
+                        <div class="control-item">
+                            <label>
+                                <span><i class="fas fa-wallet"></i> Dinero</span>
+                                <span class="value-display">{{ scale.money }}%</span>
+                            </label>
+                            <input type="range" min="50" max="150" v-model.number="scale.money">
+                        </div>
+                    </div>
+                </div>
+
+                <button @click="resetAppearance" class="btn-action warn full-width">
+                    <i class="fas fa-redo"></i> Resetear Apariencia
+                </button>
+            </div>
+
+            <button @click="finishEdit" class="btn-save-compact">
+                <i class="fas fa-save"></i> GUARDAR
+            </button>
+        </div>
+
+        <!-- BADGE ID -->
+        <div class="top-info" :style="{ '--bg-opacity': bgOpacity.badge / 10 }">
+            <div class="badge-box"><i class="fas fa-id-card"></i> {{ stats.id }}</div>
+        </div>
+
+        <!-- DINERO (CON ORIENTACIÓN) -->
+        <div class="draggable-container" :class="{ 'editing': editing }" :style="{ 
+                 left: positions.money.x + 'px', 
+                 bottom: positions.money.y + 'px',
+                 transform: 'scale(' + (scale.money / 100) + ')',
+                 '--bg-opacity': bgOpacity.money / 10
+             }" @mousedown="startDrag('money', $event)">
+
+            <div class="money-group" :class="{ 'vertical': positions.money.vertical }">
+                <div class="money-item cash">
+                    <i class="fas fa-wallet"></i>
+                    <span>$ {{ formatMoney(stats.money) }}</span>
+                </div>
+                <div class="money-item bank">
+                    <i class="fas fa-university"></i>
+                    <span>$ {{ formatMoney(stats.bank) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATUS DEL JUGADOR -->
+        <div class="draggable-container" :style="{ 
+                 left: positions.player.x + 'px', 
+                 bottom: positions.player.y + 'px',
+                 transform: 'scale(' + (scale.player / 100) + ')',
+                 '--bg-opacity': bgOpacity.player / 10
+             }" :class="{ 'editing': editing }" @mousedown="startDrag('player', $event)">
+
+            <div class="status-row" :class="{ 'vertical': positions.player.vertical }">
+                <div class="circle-box voice" :class="{ 'is-talking': stats.talking }"><svg viewBox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-fill" :stroke-dasharray="stats.voice + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg><i class="fas fa-microphone"></i></div>
+                <div class="circle-box health"><svg viewBox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-fill" :stroke-dasharray="stats.health + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg><i class="fas fa-heart"></i></div>
+                <div class="circle-box armor"><svg viewBox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-fill" :stroke-dasharray="stats.armor + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg><i class="fas fa-shield-alt"></i></div>
+                <div class="circle-box stamina" v-if="stats.stamina < 99"><svg viewBox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-fill" :stroke-dasharray="stats.stamina + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg><i class="fas fa-bolt"></i></div>
+                <div class="circle-box hunger"><svg viewBox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-fill" :stroke-dasharray="stats.hunger + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg><i class="fas fa-hamburger"></i></div>
+                <div class="circle-box thirst"><svg viewBox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-fill" :stroke-dasharray="stats.thirst + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg><i class="fas fa-tint"></i></div>
+                <div class="circle-box stress" v-if="stats.stress > 0"><svg viewBox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-fill" :stroke-dasharray="stats.stress + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg><i class="fas fa-brain"></i></div>
+                <div class="circle-box oxygen" v-if="stats.oxygen < 100"><svg viewBox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-fill" :stroke-dasharray="stats.oxygen + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg><i class="fas fa-lungs"></i></div>
+            </div>
+        </div>
+
+        <!-- HUD VEHICULAR -->
+        <transition name="slide-fade">
+            <div class="draggable-container" v-if="stats.inVehicle && !stats.isBicycle" :style="{ 
+                     left: positions.vehicle.x + 'px', 
+                     bottom: positions.vehicle.y + 'px',
+                     transform: 'scale(' + (scale.vehicle / 100) + ')',
+                     '--bg-opacity': bgOpacity.vehicle / 10
+                 }" :class="{ 'editing': editing }" @mousedown="startDrag('vehicle', $event)">
+
+                <div class="car-hud">
+
+                    <div class="critical-alerts" v-if="stats.engineOn">
+                        <div class="alert-item seizure" v-if="stats.engineSeized">
+                            <i class="fas fa-skull-crossbones"></i>
+                            <span>MOTOR GRIPADO</span>
+                        </div>
+                        <div class="alert-item fire" v-if="stats.onFire">
+                            <i class="fas fa-fire"></i>
+                            <span>INCENDIO</span>
+                        </div>
+                        <div class="alert-item shutdown" v-if="stats.shutdownProtection">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>PROTECCIÓN TÉRMICA</span>
+                        </div>
+                    </div>
+                    <div class="engine-status-bar">
+                        <div class="status-indicator" :class="{ 'on': stats.engineOn, 'off': !stats.engineOn }">
+                            <i class="fas fa-power-off"></i>
+                            <span>{{ stats.engineOn ? 'ENCENDIDO' : 'APAGADO' }}</span>
+                        </div>
+                        <div class="damage-indicator" v-if="stats.IsEngineDamage" :class="{ 
+                            'light': stats.engineDamageLevel === 1,
+                            'moderate': stats.engineDamageLevel === 2,
+                            'severe': stats.engineDamageLevel === 3,
+                            'critical': stats.engineDamageLevel >= 4
+                        }">
+                            <i class="fas fa-wrench"></i>
+                            <span v-if="stats.engineDamageLevel === 1">DAÑO LEVE</span>
+                            <span v-else-if="stats.engineDamageLevel === 2">DAÑO MODERADO</span>
+                            <span v-else-if="stats.engineDamageLevel === 3">DAÑO SEVERO</span>
+                            <span v-else>DAÑO CRÍTICO</span>
+                        </div>
+                        <div class="battery-indicator"
+                            :class="{ 'low': stats.battery < 50, 'critical': stats.battery < 30 }">
+                            <i class="fas fa-car-battery"></i>
+                            <span>{{ Math.round(stats.battery) }}%</span>
+                        </div>
+                    </div>
+                    <div class="speed-row">
+                        <div class="turn-signal left" :class="{ 'active': stats.lights.left }"><i
+                                class="fas fa-arrow-left"></i></div>
+                        <div class="speed-container">
+                            <span class="speed-number">{{ stats.speed }}</span>
+                            <span class="speed-unit">KM/H</span>
+                            <svg class="speed-ring" viewBox="0 0 36 36">
+                                <path class="circle-bg"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path class="circle-fill speed-fill" :stroke-dasharray="(stats.speed / 2.5) + ', 100'"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                            <svg class="rpm-ring" viewBox="0 0 36 36">
+                                <path class="circle-fill rpm-fill" :class="{'redline': stats.rpm > 0.9}"
+                                    :stroke-dasharray="(stats.rpm * 100) + ', 100'"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                        </div>
+                        <div class="turn-signal right" :class="{ 'active': stats.lights.right }"><i
+                                class="fas fa-arrow-right"></i></div>
+                        <div class="gear-box">
+                            <span class="gear-label">GEAR</span>
+                            <span class="gear-current" :class="{'reverse': computedGear === 'R'}">{{ computedGear
+                                }}</span>
+                        </div>
+                    </div>
+                    <div class="travel-info">
+                        <div class="location">
+                            <span class="direction">{{ stats.direction }}</span>
+                            <span class="street-name">{{ stats.street }}</span>
+                        </div>
+                        <div class="car-alerts">
+                            <i class="fas fa-parking handbrake" v-if="stats.handbrake" title="Freno"></i>
+                            <i class="fas fa-door-open door-alert" v-if="stats.doorOpen && !stats.isMotorcycle"
+                                title="Puerta"></i>
+                        </div>
+                    </div>
+                    <div class="stats-grid-extended">
+                        <!-- Fila 1: Combustible, Motor, Carrocería, Luces -->
+                        <div class="mini-stat fuel" :class="{ 'warning': stats.fuel < 20 }">
+                            <i class="fas fa-gas-pump"></i>
+                            <div class="bar-container">
+                                <div class="bar-fill" :style="{ width: stats.fuel + '%' }"></div>
+                            </div>
+                        </div>
+                        <div class="mini-stat engine" :class="{ 'warning': stats.engine < 40 }">
+                            <i class="fas fa-cogs"></i>
+                            <div class="bar-container">
+                                <div class="bar-fill" :style="{ width: stats.engine + '%' }"></div>
+                            </div>
+                        </div>
+                        <div class="mini-stat body" :class="{ 'warning': stats.body < 40 }">
+                            <i class="fas fa-car-crash"></i>
+                            <div class="bar-container">
+                                <div class="bar-fill" :style="{ width: stats.body + '%' }"></div>
+                            </div>
+                        </div>
+                        <div class="light-status">
+                            <i class="fas fa-lightbulb"
+                                :class="{ 'low-on': stats.lights.low, 'high-on': stats.lights.high }"></i>
+                        </div>
+
+                        <!-- Fila 2: Aceite, Presión, Temperatura, Cinturón -->
+                        <div class="mini-stat oil" :class="{ 'warning': stats.oil < 30 }">
+                            <i class="fas fa-oil-can"></i>
+                            <div class="bar-container">
+                                <div class="bar-fill" :style="{ width: stats.oil + '%' }"></div>
+                            </div>
+                        </div>
+                        <div class="mini-stat pressure" :class="{ 'warning': stats.pressure > 5 }">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <div class="bar-container">
+                                <div class="bar-fill" :style="{ width: (stats.pressure * 10) + '%' }"></div>
+                            </div>
+                        </div>
+                        <div class="mini-stat temp" :class="{ 'warning': stats.temp > 105 }">
+                            <i class="fas fa-temperature-high"></i>
+                            <div class="stat-value">{{ Math.round(stats.temp) }}°</div>
+                        </div>
+                        <div class="seatbelt-icon" :class="{ 'active': stats.seatbelt }" v-if="!stats.isMotorcycle">
+                            <i class="fas fa-user-slash" v-if="!stats.seatbelt"></i>
+                            <i class="fas fa-user-shield" v-else></i>
+                        </div>
+
+                        <!-- Fila 3: Refrigerante y Odómetro (Span completo) -->
+                        <div class="mini-stat coolant" :class="{ 'warning': stats.coolant < 30 }">
+                            <i class="fas fa-tint"></i>
+                            <span class="stat-label">Refrigerante</span>
+                            <div class="bar-container">
+                                <div class="bar-fill" :style="{ width: stats.coolant + '%' }"></div>
+                            </div>
+                        </div>
+
+                        <div class="odometer-display">
+                            <i class="fas fa-road"></i>
+                            <span class="odometer-value">{{ formatOdometer(stats.odometer) }} km</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
