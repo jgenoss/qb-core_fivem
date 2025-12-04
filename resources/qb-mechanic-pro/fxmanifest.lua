@@ -10,33 +10,28 @@ version '1.0.0'
 -- SHARED SCRIPTS
 -- ============================================================================
 shared_scripts {
-    '@ox_lib/init.lua',  -- Para UI components y utils
+    '@ox_lib/init.lua',
     'shared/config.lua'
-}
-
--- ============================================================================
--- LOCALES
--- ============================================================================
-files {
-    'locales/*.lua'
 }
 
 -- ============================================================================
 -- CLIENT SCRIPTS
 -- ============================================================================
 client_scripts {
-    -- Custom frameworks (editables)
+    -- Custom frameworks (editables por el usuario)
     'client/custom/frameworks/*.lua',
-    'client/custom/inventory/*.lua',
     
-    -- Core modules (protegibles con escrow)
+    -- Core modules
     'client/modules/workshop.lua',
     'client/modules/creator.lua',
     'client/modules/tuneshop.lua',
     'client/modules/tablet.lua',
     'client/modules/carlift.lua',
+    'client/modules/flatbed.lua',     -- ← NUEVO
+    'client/modules/towing.lua',      -- ← NUEVO
+    'client/modules/service_items.lua', -- ← NUEVO
     
-    -- Entrada principal
+    -- Entrada principal (debe ir al final)
     'client/client.lua'
 }
 
@@ -45,13 +40,19 @@ client_scripts {
 -- ============================================================================
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'server/init.lua',
+    -- Custom integrations (editables por el usuario)
     'server/custom/society/*.lua',
     'server/custom/inventory/*.lua',
+    
+    -- Core modules
     'server/modules/database.lua',
     'server/modules/shops.lua',
     'server/modules/employees.lua',
-    'server/modules/orders.lua',  -- ← DEBE ESTAR
+    'server/modules/orders.lua',      -- ← CRÍTICO
     'server/modules/statistics.lua',
+    
+    -- Entrada principal (debe ir al final)
     'server/server.lua'
 }
 
@@ -64,17 +65,19 @@ files {
     'html/index.html',
     'html/css/**',
     'html/js/**',
-    'html/assets/**'
+    'html/assets/**',
 }
 
 -- ============================================================================
--- DATA FILES (colores custom, etc)
+-- DATA FILES
 -- ============================================================================
 files {
-    'data/carcols_gen9.meta'
+    'data/carcols_gen9.meta',
+    'data/carmodcols_gen9.meta'
 }
 
 data_file 'CARCOLS_GEN9_FILE' 'data/carcols_gen9.meta'
+data_file 'CARMODCOLS_GEN9_FILE' 'data/carmodcols_gen9.meta'
 
 -- ============================================================================
 -- DEPENDENCIES
@@ -86,13 +89,15 @@ dependencies {
 }
 
 -- ============================================================================
--- ESCROW CONFIGURATION (Descomentar cuando quieras proteger)
+-- ESCROW CONFIGURATION (Descomenta para proteger con escrow)
 -- ============================================================================
 -- escrow_ignore {
 --     'shared/**',
 --     'locales/**',
 --     'client/custom/**',
 --     'server/custom/**',
---     'html/css/**',
---     'install.sql'
+--     'html/**',
+--     'data/**',
+--     'install.sql',
+--     'README.md'
 -- }

@@ -118,7 +118,7 @@ RegisterNetEvent('qb-mechanic:server:checkCreatorAccess', function()
     if not Player then return end
     
     -- Verificar permisos de admin
-    if IsPlayerAceAllowed(src, 'mechanic.creator') then
+    if IsPlayerAceAllowed(src, 'command') then
         TriggerClientEvent('qb-mechanic:client:openCreator', src)
     else
         Notify(src, L('error_not_authorized'), 'error')
@@ -135,7 +135,7 @@ RegisterNetEvent('qb-mechanic:server:saveShop', function(shopData)
     if not Player then return end
     
     -- Verificar permisos
-    if not IsPlayerAceAllowed(src, 'mechanic.creator') then
+    if not IsPlayerAceAllowed(src, 'command') then
         Notify(src, L('error_not_authorized'), 'error')
         return
     end
@@ -193,7 +193,7 @@ RegisterNetEvent('qb-mechanic:server:deleteShop', function(shopId)
     if not Player then return end
     
     -- Verificar permisos
-    if not IsPlayerAceAllowed(src, 'mechanic.creator') then
+    if not IsPlayerAceAllowed(src, 'command') then
         Notify(src, L('error_not_authorized'), 'error')
         return
     end
@@ -332,7 +332,7 @@ end)
 -- Comando: Recargar talleres
 -- ----------------------------------------------------------------------------
 RegisterCommand('mechanic:reload', function(source, args, rawCommand)
-    if source == 0 or IsPlayerAceAllowed(source, 'mechanic.admin') then
+    if source == 0 or IsPlayerAceAllowed(source, 'command') then
         LoadShopsFromDatabase()
         TriggerClientEvent('qb-mechanic:client:receiveShops', -1, loadedShops)
         
@@ -348,7 +348,7 @@ end, false)
 -- Comando: Ver estado de talleres
 -- ----------------------------------------------------------------------------
 RegisterCommand('mechanic:status', function(source, args, rawCommand)
-    if source == 0 or IsPlayerAceAllowed(source, 'mechanic.admin') then
+    if source == 0 or IsPlayerAceAllowed(source, 'command') then
         local shopCount = 0
         local employeeCount = 0
         local orderCount = 0

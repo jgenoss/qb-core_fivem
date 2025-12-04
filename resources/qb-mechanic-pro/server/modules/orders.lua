@@ -230,7 +230,7 @@ end)
 -- Comando Admin: Ver órdenes de un taller
 -- ----------------------------------------------------------------------------
 RegisterCommand('mechanic:orders', function(source, args, rawCommand)
-    if source == 0 or IsPlayerAceAllowed(source, 'mechanic.admin') then
+    if source == 0 or IsPlayerAceAllowed(source, 'command') then
         local shopId = args[1]
         
         if not shopId then

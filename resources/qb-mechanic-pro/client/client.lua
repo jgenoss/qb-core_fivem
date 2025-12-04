@@ -195,6 +195,7 @@ RegisterNetEvent('qb-mechanic:client:teleport', function(x, y, z)
     Notify('Teleported to shop', 'success')
 end)
 
+
 -- ----------------------------------------------------------------------------
 -- 8. INICIALIZACIÓN
 -- ----------------------------------------------------------------------------

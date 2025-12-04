@@ -86,6 +86,23 @@ function LowerVehicle(vehicle)
     end)
 end
 
+-- Añadir al final del archivo si usas qb-target
+CreateThread(function()
+    if Config.TargetSystem == 'qb-target' or GetResourceState('qb-target') == 'started' then
+        exports['qb-target']:AddTargetModel('qs_carlift_model', { -- Asegúrate de usar el nombre correcto del prop
+            options = {
+                {
+                    type = "client",
+                    event = "qb-mechanic:client:handleCarlift",
+                    icon = "fas fa-sort",
+                    label = "Use Carlift",
+                    job = "mechanic", -- Opcional: restringir a mecánicos
+                },
+            },
+            distance = 2.5,
+        })
+    end
+end)
 -- ----------------------------------------------------------------------------
 -- Exports
 -- ----------------------------------------------------------------------------

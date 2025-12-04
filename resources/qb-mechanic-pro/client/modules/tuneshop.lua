@@ -178,3 +178,58 @@ RegisterNUICallback('closeTuneshop', function(data, cb)
     SetNuiFocus(false, false)
     cb('ok')
 end)
+
+-- ============================================================================
+-- EVENTO CRÍTICO: Recibir y aplicar las modificaciones compradas
+-- ============================================================================
+RegisterNetEvent('qb-mechanic:client:applyPurchasedMods', function(modifications)
+    -- Verificar si estamos en el vehículo correcto
+    if not currentVehicle or not DoesEntityExist(currentVehicle) then 
+        return 
+    end
+
+    -- 1. Aplicar las modificaciones físicamente al vehículo
+    for _, mod in pairs(modifications) do
+        local modType = mod.modType
+        local modIndex = tonumber(mod.index) or mod.index
+        
+        if modType == 'respray' then
+            local colorType = mod.colorType
+            local currentColor = {GetVehicleColours(currentVehicle)}
+            if colorType == 'primary' then
+                SetVehicleColours(currentVehicle, modIndex, currentColor[2])
+            else
+                SetVehicleColours(currentVehicle, currentColor[1], modIndex)
+            end
+        elseif modType == 'turbo' then
+            ToggleVehicleMod(currentVehicle, 18, true)
+        elseif modType == 'xenon' then
+            ToggleVehicleMod(currentVehicle, 22, true)
+            if mod.color then SetVehicleXenonLightsColour(currentVehicle, mod.color) end
+        elseif modType == 'neon' then
+            -- Activar neones en todos los lados
+            for i = 0, 3 do SetVehicleNeonLightEnabled(currentVehicle, i, true) end
+            if mod.color then 
+                SetVehicleNeonLightsColour(currentVehicle, mod.color[1], mod.color[2], mod.color[3]) 
+            end
+        elseif modType == 'plate_index' then
+            SetVehicleNumberPlateTextIndex(currentVehicle, modIndex)
+        elseif modType == 'window_tint' then
+            SetVehicleWindowTint(currentVehicle, modIndex)
+        elseif type(modType) == 'number' then
+            SetVehicleModKit(currentVehicle, 0)
+            SetVehicleMod(currentVehicle, modType, modIndex, false)
+        end
+    end
+
+    -- 2. IMPORTANTE: Actualizar la referencia de 'originalMods'
+    -- Si no hacemos esto, al llamar a 'exitTuneshop', el script pensará que
+    -- debe revertir el coche a como estaba antes de comprar.
+    originalMods = exports['qb-mechanic-pro']:GetVehicleProperties(currentVehicle)
+
+    -- 3. Notificar éxito y guardar estado
+    exports['qb-mechanic-pro']:Notify('Modificaciones instaladas correctamente', 'success')
+    
+    -- Opcional: Forzar guardado en base de datos si usas qb-vehiclekeys o similar
+    TriggerServerEvent('qb-vehiclekeys:server:SaveVehicle', GetVehicleNumberPlateText(currentVehicle))
+end)

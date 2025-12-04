@@ -16,9 +16,16 @@ function Database.GetAllShops()
     
     -- Parsear config_data JSON
     for _, shop in ipairs(result) do
-        local success, config = pcall(json.decode, shop.config_data)
-        if success then
-            shop.config_data = config
+        if shop.config_data then
+            local success, config = pcall(json.decode, shop.config_data)
+            if success and config then
+                shop.config_data = config
+            else
+                print('^1[ERROR] Failed to decode config_data for shop: ' .. (shop.id or "unknown") .. '^0')
+                shop.config_data = {} -- Default seguro
+            end
+        else
+            shop.config_data = {} -- Si es NULL en SQL, asignar tabla vacía
         end
     end
     
@@ -30,10 +37,16 @@ function Database.GetShop(shopId)
     
     if not result then return nil end
     
-    -- Parsear config_data JSON
-    local success, config = pcall(json.decode, result.config_data)
-    if success then
-        result.config_data = config
+    -- Parsear config_data JSON con seguridad
+    if result.config_data then
+        local success, config = pcall(json.decode, result.config_data)
+        if success and config then
+            result.config_data = config
+        else
+            result.config_data = {}
+        end
+    else
+        result.config_data = {}
     end
     
     return result

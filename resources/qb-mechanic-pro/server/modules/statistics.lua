@@ -111,7 +111,7 @@ end)
 -- Comando: Exportar estadísticas a JSON
 -- ----------------------------------------------------------------------------
 RegisterCommand('mechanic:export-stats', function(source, args, rawCommand)
-    if source == 0 or IsPlayerAceAllowed(source, 'mechanic.admin') then
+    if source == 0 or IsPlayerAceAllowed(source, 'command') then
         local shopId = args[1]
         
         if not shopId then
